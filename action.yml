@@ -1,5 +1,5 @@
 name: 'AgentForge Eval'
-description: 'Run an AI agent evaluation cycle: generate scenarios, execute traces, score results, and gate promotion. One agent file in — a better agent out.'
+description: 'Evaluate AI agents: generate scenarios, run traces, score results, and gate promotion. One agent file in, better agent out.'
 author: 'AgentForge'
 
 branding:
