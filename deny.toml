@@ -5,7 +5,13 @@ all-features = false
 [advisories]
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
-ignore = []
+
+[[advisories.ignore]]
+id = "RUSTSEC-2023-0071"
+# rsa 0.9.x Marvin Attack timing side-channel.
+# Transitive dep via sqlx-mysql (pulled in by sqlx proc-macro crate at build time).
+# AgentForge only uses the postgres runtime feature; RSA is never invoked.
+# No upstream fix is available. Tracked: https://github.com/RustCrypto/RSA/issues/19
 
 [licenses]
 allow = [
