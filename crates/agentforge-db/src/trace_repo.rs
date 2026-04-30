@@ -1,11 +1,10 @@
+use crate::db_err;
+use agentforge_core::{
+    AgentForgeError, DimensionScores, FailureCluster, Result, Trace, TraceStatus, TraceStep,
+};
+use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::Utc;
-use agentforge_core::{
-    AgentForgeError, Trace, TraceStatus, TraceStep, DimensionScores,
-    FailureCluster, Result,
-};
-use crate::db_err;
 
 pub struct TraceRepo {
     pool: PgPool,
@@ -21,8 +20,10 @@ impl TraceRepo {
         let cluster_str = trace.failure_cluster.to_string();
         let steps_json = serde_json::to_value(&trace.steps)
             .map_err(|e| AgentForgeError::SerializationError(e.to_string()))?;
-        let scores_json = trace.scores.as_ref()
-            .map(|s| serde_json::to_value(s))
+        let scores_json = trace
+            .scores
+            .as_ref()
+            .map(serde_json::to_value)
             .transpose()
             .map_err(|e| AgentForgeError::SerializationError(e.to_string()))?;
 
@@ -80,14 +81,31 @@ impl TraceRepo {
         .fetch_optional(&self.pool)
         .await
         .map_err(db_err)?
-        .ok_or_else(|| AgentForgeError::NotFound { resource: "Trace", id: id.to_string() })?;
+        .ok_or_else(|| AgentForgeError::NotFound {
+            resource: "Trace",
+            id: id.to_string(),
+        })?;
 
         self.convert_row(
-            r.id, r.run_id, r.scenario_id, r.status, r.steps,
-            r.final_output, r.scores, r.aggregate_score,
-            r.failure_cluster, r.failure_reason, r.review_needed,
-            r.llm_calls, r.tool_invocations, r.input_tokens, r.output_tokens,
-            r.latency_ms, r.retry_count, r.seed, r.created_at,
+            r.id,
+            r.run_id,
+            r.scenario_id,
+            r.status,
+            r.steps,
+            r.final_output,
+            r.scores,
+            r.aggregate_score,
+            r.failure_cluster,
+            r.failure_reason,
+            r.review_needed,
+            r.llm_calls,
+            r.tool_invocations,
+            r.input_tokens,
+            r.output_tokens,
+            r.latency_ms,
+            r.retry_count,
+            r.seed,
+            r.created_at,
         )
     }
 
@@ -110,13 +128,29 @@ impl TraceRepo {
         .map_err(db_err)?;
 
         rows.into_iter()
-            .map(|r| self.convert_row(
-                r.id, r.run_id, r.scenario_id, r.status, r.steps,
-                r.final_output, r.scores, r.aggregate_score,
-                r.failure_cluster, r.failure_reason, r.review_needed,
-                r.llm_calls, r.tool_invocations, r.input_tokens, r.output_tokens,
-                r.latency_ms, r.retry_count, r.seed, r.created_at,
-            ))
+            .map(|r| {
+                self.convert_row(
+                    r.id,
+                    r.run_id,
+                    r.scenario_id,
+                    r.status,
+                    r.steps,
+                    r.final_output,
+                    r.scores,
+                    r.aggregate_score,
+                    r.failure_cluster,
+                    r.failure_reason,
+                    r.review_needed,
+                    r.llm_calls,
+                    r.tool_invocations,
+                    r.input_tokens,
+                    r.output_tokens,
+                    r.latency_ms,
+                    r.retry_count,
+                    r.seed,
+                    r.created_at,
+                )
+            })
             .collect()
     }
 
@@ -143,6 +177,7 @@ impl TraceRepo {
         Ok(row.cnt.unwrap_or(0))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn convert_row(
         &self,
         id: Uuid,

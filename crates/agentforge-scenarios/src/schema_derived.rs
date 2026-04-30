@@ -1,9 +1,9 @@
 use agentforge_core::{
-    AgentFile, ConversationRole, ConversationTurn, DifficultyTier, ExpectedToolCall,
-    Result, Scenario, ScenarioExpected, ScenarioInput, ScenarioSource, ToolDefinition,
+    AgentFile, DifficultyTier, ExpectedToolCall, Result, Scenario, ScenarioExpected, ScenarioInput,
+    ScenarioSource, ToolDefinition,
 };
-use uuid::Uuid;
 use chrono::Utc;
+use uuid::Uuid;
 
 /// Generate scenarios that exercise every tool and output field.
 pub fn generate_schema_derived_scenarios(
@@ -174,7 +174,7 @@ fn multi_tool_scenario(agent: &AgentFile, agent_id: Uuid, seed: u64) -> Scenario
 }
 
 fn generic_task_scenario(agent: &AgentFile, agent_id: Uuid, index: usize) -> Scenario {
-    let messages = vec![
+    let messages = [
         "Please help me with my request.",
         "I need assistance with a task.",
         "Can you help me?",
@@ -209,7 +209,7 @@ fn generic_task_scenario(agent: &AgentFile, agent_id: Uuid, index: usize) -> Sce
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agentforge_core::{EvalHints, ModelConfig, ModelProvider};
+    use agentforge_core::{ModelConfig, ModelProvider};
 
     fn make_agent_with_tools() -> AgentFile {
         AgentFile {
@@ -254,7 +254,9 @@ mod tests {
         let scenarios = generate_schema_derived_scenarios(&agent, 5, id).unwrap();
         assert_eq!(scenarios.len(), 5);
         // At least one scenario should target tool_a
-        assert!(scenarios.iter().any(|s| s.tags.iter().any(|t| t.contains("tool_a"))));
+        assert!(scenarios
+            .iter()
+            .any(|s| s.tags.iter().any(|t| t.contains("tool_a"))));
     }
 
     #[test]

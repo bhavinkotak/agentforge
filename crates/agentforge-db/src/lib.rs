@@ -1,12 +1,12 @@
 pub mod agent_repo;
 pub mod eval_repo;
+pub mod pool;
 pub mod scenario_repo;
 pub mod trace_repo;
-pub mod pool;
 
-pub use pool::*;
 pub use agent_repo::AgentRepo;
 pub use eval_repo::EvalRepo;
+pub use pool::*;
 pub use scenario_repo::ScenarioRepo;
 pub use trace_repo::TraceRepo;
 

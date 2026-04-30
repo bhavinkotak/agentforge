@@ -1,6 +1,4 @@
-use agentforge_core::{
-    AgentFile, EvalHints, ModelConfig, ModelProvider, Result, ToolDefinition,
-};
+use agentforge_core::{AgentFile, EvalHints, ModelConfig, ModelProvider, Result, ToolDefinition};
 use std::collections::HashMap;
 
 /// Normalize a GitHub Copilot `.agent.md` file into `AgentFile`.
@@ -39,10 +37,16 @@ pub fn normalize(frontmatter: &serde_json::Value, system_prompt_body: &str) -> R
     // Build metadata preserving Copilot-specific fields
     let mut metadata: HashMap<String, serde_json::Value> = HashMap::new();
     if let Some(desc) = &description {
-        metadata.insert("description".to_string(), serde_json::Value::String(desc.clone()));
+        metadata.insert(
+            "description".to_string(),
+            serde_json::Value::String(desc.clone()),
+        );
     }
     if let Some(arg_hint) = frontmatter.get("argument-hint").and_then(|v| v.as_str()) {
-        metadata.insert("argument_hint".to_string(), serde_json::Value::String(arg_hint.to_string()));
+        metadata.insert(
+            "argument_hint".to_string(),
+            serde_json::Value::String(arg_hint.to_string()),
+        );
     }
     if let Some(handoffs) = frontmatter.get("handoffs") {
         metadata.insert("handoffs".to_string(), handoffs.clone());
@@ -61,7 +65,11 @@ pub fn normalize(frontmatter: &serde_json::Value, system_prompt_body: &str) -> R
         output_schema: None,
         constraints: vec![],
         eval_hints: Some(EvalHints::default()),
-        metadata: if metadata.is_empty() { None } else { Some(metadata) },
+        metadata: if metadata.is_empty() {
+            None
+        } else {
+            Some(metadata)
+        },
     })
 }
 
@@ -120,10 +128,16 @@ fn parse_copilot_tools(frontmatter: &serde_json::Value) -> Vec<ToolDefinition> {
             let display_name = capability
                 .rsplit('/')
                 .next()
-                .map(|s| if s == "*" {
-                    capability.split('/').next().unwrap_or(&capability).to_string()
-                } else {
-                    s.to_string()
+                .map(|s| {
+                    if s == "*" {
+                        capability
+                            .split('/')
+                            .next()
+                            .unwrap_or(&capability)
+                            .to_string()
+                    } else {
+                        s.to_string()
+                    }
                 })
                 .unwrap_or_else(|| capability.clone());
 

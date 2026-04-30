@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use std::process;
 use uuid::Uuid;
 
-use agentforge_db::{agent_repo::AgentRepo, create_pool, eval_repo::EvalRepo, scenario_repo::ScenarioRepo, trace_repo::TraceRepo};
+use agentforge_db::{
+    agent_repo::AgentRepo, create_pool, eval_repo::EvalRepo, scenario_repo::ScenarioRepo,
+    trace_repo::TraceRepo,
+};
 use agentforge_gatekeeper::{GateStatus, Gatekeeper, GatekeeperConfig};
 use agentforge_parser::{parse_agent_file, to_agent_version, validate_agent_file};
 use agentforge_runner::{AgentRunner, AnthropicClient, OpenAiClient, RunnerConfig};
@@ -105,22 +108,29 @@ async fn main() {
 /// Returns 0 for pass, 1 for gate failure, 2 for error.
 async fn run_command(command: Commands) -> Result<i32> {
     match command {
-        Commands::Run { agent, scenarios, concurrency, seed } => {
-            cmd_run(agent, scenarios, concurrency, seed).await
-        }
+        Commands::Run {
+            agent,
+            scenarios,
+            concurrency,
+            seed,
+        } => cmd_run(agent, scenarios, concurrency, seed).await,
         Commands::Diff { v1, v2 } => cmd_diff(v1, v2).await,
         Commands::Promote { run_id } => cmd_promote(run_id).await,
         Commands::Scores { run } => cmd_scores(run).await,
     }
 }
 
-async fn cmd_run(agent_path: PathBuf, scenario_count: u32, concurrency: u32, seed: u64) -> Result<i32> {
+async fn cmd_run(
+    agent_path: PathBuf,
+    scenario_count: u32,
+    concurrency: u32,
+    seed: u64,
+) -> Result<i32> {
     let content = std::fs::read_to_string(&agent_path)
         .with_context(|| format!("Failed to read agent file: {}", agent_path.display()))?;
 
     // Parse
-    let parsed = parse_agent_file(&content)
-        .with_context(|| "Failed to parse agent file")?;
+    let parsed = parse_agent_file(&content).with_context(|| "Failed to parse agent file")?;
 
     // Validate
     let validation = validate_agent_file(&parsed.agent);
@@ -131,14 +141,23 @@ async fn cmd_run(agent_path: PathBuf, scenario_count: u32, concurrency: u32, see
         eprintln!("[WARN]  {}", warn.message);
     }
     if !validation.errors.is_empty() {
-        eprintln!("Validation failed with {} error(s)", validation.errors.len());
+        eprintln!(
+            "Validation failed with {} error(s)",
+            validation.errors.len()
+        );
         return Ok(2);
     }
 
     let agent_file = parsed.agent.clone();
     let format = parsed.format.clone();
     let sha = parsed.sha.clone();
-    println!("Agent: {} v{} (format: {}, sha: {})", agent_file.name, agent_file.version, format, &sha[..12]);
+    println!(
+        "Agent: {} v{} (format: {}, sha: {})",
+        agent_file.name,
+        agent_file.version,
+        format,
+        &sha[..12]
+    );
 
     // DB (optional — skip if no DATABASE_URL)
     let db_opt = if let Ok(url) = std::env::var("DATABASE_URL") {
@@ -166,14 +185,22 @@ async fn cmd_run(agent_path: PathBuf, scenario_count: u32, concurrency: u32, see
     // Generate scenarios
     println!("Generating {} scenarios...", scenario_count);
     let scorer_config = build_scorer_config();
-    let scenarios = generate_scenarios(&agent_file, &ScenarioGeneratorConfig {
-        total_count: scenario_count,
-        agent_id,
-        llm_base_url: Some(scorer_config.judge_base_url.clone()),
-        llm_api_key: if scorer_config.judge_api_key.is_empty() { None } else { Some(scorer_config.judge_api_key.clone()) },
-        llm_model: Some(scorer_config.judge_model.clone()),
-        ..Default::default()
-    }).await
+    let scenarios = generate_scenarios(
+        &agent_file,
+        &ScenarioGeneratorConfig {
+            total_count: scenario_count,
+            agent_id,
+            llm_base_url: Some(scorer_config.judge_base_url.clone()),
+            llm_api_key: if scorer_config.judge_api_key.is_empty() {
+                None
+            } else {
+                Some(scorer_config.judge_api_key.clone())
+            },
+            llm_model: Some(scorer_config.judge_model.clone()),
+            ..Default::default()
+        },
+    )
+    .await
     .with_context(|| "Scenario generation failed")?;
     println!("Generated {} scenarios.", scenarios.len());
 
@@ -181,27 +208,37 @@ async fn cmd_run(agent_path: PathBuf, scenario_count: u32, concurrency: u32, see
     let llm_client = build_llm_client()?;
 
     // Run agent
-    println!("Running agent across {} scenarios (concurrency: {})...", scenarios.len(), concurrency);
+    println!(
+        "Running agent across {} scenarios (concurrency: {})...",
+        scenarios.len(),
+        concurrency
+    );
     let runner = AgentRunner::new(
         llm_client,
-        RunnerConfig { concurrency: concurrency as usize, ..Default::default() },
+        RunnerConfig {
+            concurrency: concurrency as usize,
+            ..Default::default()
+        },
     );
-    let run_result = runner.run(
-        &agent_file,
-        scenarios.clone(),
-        Some(std::sync::Arc::new(move |done: u32, total: u32| {
-            if done % 10 == 0 || done == total {
-                print!("\r  Progress: {}/{} scenarios", done, total);
-                let _ = std::io::Write::flush(&mut std::io::stdout());
-            }
-        })),
-    ).await;
+    let run_result = runner
+        .run(
+            &agent_file,
+            scenarios.clone(),
+            Some(std::sync::Arc::new(move |done: u32, total: u32| {
+                if done.is_multiple_of(10) || done == total {
+                    print!("\r  Progress: {}/{} scenarios", done, total);
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                }
+            })),
+        )
+        .await;
     let mut traces = run_result.traces;
     println!();
 
     // Score
     let run_id = Uuid::new_v4();
-    let scorecard = score_run(&mut traces, &scenarios, &agent_file, run_id, &scorer_config).await
+    let scorecard = score_run(&mut traces, &scenarios, &agent_file, run_id, &scorer_config)
+        .await
         .with_context(|| "Scoring failed")?;
 
     // Print results
@@ -238,26 +275,35 @@ async fn cmd_run(agent_path: PathBuf, scenario_count: u32, concurrency: u32, see
         for trace in &traces {
             let _ = trace_repo.insert(trace).await;
         }
-        eval_repo.save_scores(
-            eval_run.id,
-            &scorecard.dimension_scores,
-            scorecard.aggregate_score,
-            scorecard.pass_rate,
-            &scorecard.failure_clusters,
-        ).await?;
-        eval_repo.update_status(eval_run.id, &agentforge_core::EvalRunStatus::Complete).await?;
+        eval_repo
+            .save_scores(
+                eval_run.id,
+                &scorecard.dimension_scores,
+                scorecard.aggregate_score,
+                scorecard.pass_rate,
+                &scorecard.failure_clusters,
+            )
+            .await?;
+        eval_repo
+            .update_status(eval_run.id, &agentforge_core::EvalRunStatus::Complete)
+            .await?;
         println!("\nRun ID: {}", eval_run.id);
     }
 
     // Exit code: 0 = pass threshold met, 1 = failed
-    let pass_threshold = agent_file.eval_hints.as_ref()
+    let pass_threshold = agent_file
+        .eval_hints
+        .as_ref()
         .and_then(|h| h.pass_threshold)
         .unwrap_or(0.85);
 
     if scorecard.aggregate_score >= pass_threshold {
         Ok(0)
     } else {
-        eprintln!("\nFailed: aggregate score {:.3} < threshold {:.3}", scorecard.aggregate_score, pass_threshold);
+        eprintln!(
+            "\nFailed: aggregate score {:.3} < threshold {:.3}",
+            scorecard.aggregate_score, pass_threshold
+        );
         Ok(1)
     }
 }
@@ -266,19 +312,30 @@ async fn cmd_diff(v1: Uuid, v2: Uuid) -> Result<i32> {
     let db = require_db().await?;
     let repo = AgentRepo::new(db);
 
-    let ver1 = repo.find_by_id(v1).await
+    let ver1 = repo
+        .find_by_id(v1)
+        .await
         .map_err(|_| anyhow::anyhow!("Version {v1} not found"))?;
-    let ver2 = repo.find_by_id(v2).await
+    let ver2 = repo
+        .find_by_id(v2)
+        .await
         .map_err(|_| anyhow::anyhow!("Version {v2} not found"))?;
 
-    println!("Diff: {} v{} → {} v{}", ver1.name, ver1.version, ver2.name, ver2.version);
+    println!(
+        "Diff: {} v{} → {} v{}",
+        ver1.name, ver1.version, ver2.name, ver2.version
+    );
     println!("SHA: {} → {}", &ver1.sha[..12], &ver2.sha[..12]);
 
     let prompt1 = ver1.file_content.system_prompt.as_str();
     let prompt2 = ver2.file_content.system_prompt.as_str();
 
     if prompt1 != prompt2 {
-        println!("\nSystem prompt changed ({} → {} chars)", prompt1.len(), prompt2.len());
+        println!(
+            "\nSystem prompt changed ({} → {} chars)",
+            prompt1.len(),
+            prompt2.len()
+        );
     } else {
         println!("\nSystem prompt: unchanged");
     }
@@ -292,21 +349,26 @@ async fn cmd_promote(run_id: Uuid) -> Result<i32> {
     let agent_repo = AgentRepo::new(db.clone());
     let trace_repo = TraceRepo::new(db.clone());
 
-    let run = eval_repo.find_by_id(run_id).await
+    let run = eval_repo
+        .find_by_id(run_id)
+        .await
         .map_err(|_| anyhow::anyhow!("Run {run_id} not found"))?;
 
     if run.status != agentforge_core::EvalRunStatus::Complete {
         anyhow::bail!("Run {run_id} is not complete (status: {:?})", run.status);
     }
 
-    let challenger_scorecard = run.to_scorecard()
+    let challenger_scorecard = run
+        .to_scorecard()
         .ok_or_else(|| anyhow::anyhow!("Run {run_id} has no scores"))?;
 
     let challenger_traces = trace_repo.list_by_run(run_id).await?;
 
     // Find current champion by agent name — fetch agent first to get name
-    let challenger_agent = agent_repo.find_by_id(run.agent_id)
-        .await.map_err(|_| anyhow::anyhow!("Agent not found"))?;
+    let challenger_agent = agent_repo
+        .find_by_id(run.agent_id)
+        .await
+        .map_err(|_| anyhow::anyhow!("Agent not found"))?;
     let champion_versions = agent_repo.list_by_name(&challenger_agent.name).await?;
     let champion = champion_versions.iter().find(|v| v.is_champion);
     let champion_scorecard = if let Some(champ) = champion {
@@ -320,19 +382,34 @@ async fn cmd_promote(run_id: Uuid) -> Result<i32> {
         let runs = eval_repo.list_by_agent(champ.id, 1).await?;
         if let Some(champ_run) = runs.into_iter().next() {
             trace_repo.list_passing_scenario_ids(champ_run.id).await?
-        } else { vec![] }
-    } else { vec![] };
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
 
     let seed_scores = vec![challenger_scorecard.aggregate_score; 3];
 
     let gk = Gatekeeper::new(GatekeeperConfig::default());
     let decision = gk.evaluate(
-        run_id, run.agent_id,
-        champion_scorecard.as_ref(), &challenger_scorecard,
-        &champion_passing, &challenger_traces, &seed_scores,
+        run_id,
+        run.agent_id,
+        champion_scorecard.as_ref(),
+        &challenger_scorecard,
+        &champion_passing,
+        &challenger_traces,
+        &seed_scores,
     )?;
 
-    println!("\nPromotion Decision: {}", if decision.approved { "APPROVED ✅" } else { "DENIED ❌" });
+    println!(
+        "\nPromotion Decision: {}",
+        if decision.approved {
+            "APPROVED ✅"
+        } else {
+            "DENIED ❌"
+        }
+    );
     println!();
     for gate in &decision.gates {
         let sym = match gate.status {
@@ -345,8 +422,12 @@ async fn cmd_promote(run_id: Uuid) -> Result<i32> {
     println!("\n{}", decision.changelog);
 
     if decision.approved {
-        agent_repo.set_champion(challenger_agent.id, &challenger_agent.name).await?;
-        agent_repo.update_changelog(challenger_agent.id, &decision.changelog).await?;
+        agent_repo
+            .set_champion(challenger_agent.id, &challenger_agent.name)
+            .await?;
+        agent_repo
+            .update_changelog(challenger_agent.id, &decision.changelog)
+            .await?;
         println!("\nAgent promoted to champion.");
         Ok(0)
     } else {
@@ -357,10 +438,13 @@ async fn cmd_promote(run_id: Uuid) -> Result<i32> {
 async fn cmd_scores(run_id: Uuid) -> Result<i32> {
     let db = require_db().await?;
     let eval_repo = EvalRepo::new(db);
-    let run = eval_repo.find_by_id(run_id).await
+    let run = eval_repo
+        .find_by_id(run_id)
+        .await
         .map_err(|_| anyhow::anyhow!("Run {run_id} not found"))?;
 
-    let scorecard = run.to_scorecard()
+    let scorecard = run
+        .to_scorecard()
         .ok_or_else(|| anyhow::anyhow!("Run {run_id} has no scores yet"))?;
 
     print_scorecard(&scorecard);
@@ -375,25 +459,55 @@ fn print_scorecard(sc: &agentforge_core::Scorecard) {
     println!("║  Run ID:     {}", sc.run_id);
     println!("╠══════════════════════════════════════╣");
     println!("║  Aggregate:  {:.3}", sc.aggregate_score);
-    println!("║  Pass Rate:  {:.1}% ({}/{} scenarios)", sc.pass_rate * 100.0, sc.passed, sc.total_scenarios);
+    println!(
+        "║  Pass Rate:  {:.1}% ({}/{} scenarios)",
+        sc.pass_rate * 100.0,
+        sc.passed,
+        sc.total_scenarios
+    );
     println!("╠══════════════════════════════════════╣");
     println!("║  Dimension Scores:                   ║");
-    println!("║    Task Completion:    {:.3}", sc.dimension_scores.task_completion);
-    println!("║    Tool Selection:     {:.3}", sc.dimension_scores.tool_selection);
-    println!("║    Arg Correctness:    {:.3}", sc.dimension_scores.argument_correctness);
-    println!("║    Schema Compliance:  {:.3}", sc.dimension_scores.schema_compliance);
-    println!("║    Instr. Adherence:   {:.3}", sc.dimension_scores.instruction_adherence);
-    println!("║    Path Efficiency:    {:.3}", sc.dimension_scores.path_efficiency);
+    println!(
+        "║    Task Completion:    {:.3}",
+        sc.dimension_scores.task_completion
+    );
+    println!(
+        "║    Tool Selection:     {:.3}",
+        sc.dimension_scores.tool_selection
+    );
+    println!(
+        "║    Arg Correctness:    {:.3}",
+        sc.dimension_scores.argument_correctness
+    );
+    println!(
+        "║    Schema Compliance:  {:.3}",
+        sc.dimension_scores.schema_compliance
+    );
+    println!(
+        "║    Instr. Adherence:   {:.3}",
+        sc.dimension_scores.instruction_adherence
+    );
+    println!(
+        "║    Path Efficiency:    {:.3}",
+        sc.dimension_scores.path_efficiency
+    );
     if !sc.failure_clusters.is_empty() {
         println!("╠══════════════════════════════════════╣");
         println!("║  Failure Clusters:");
         for cluster in &sc.failure_clusters {
-            println!("║    {:?}: {} ({:.0}%)", cluster.cluster, cluster.count, cluster.percentage * 100.0);
+            println!(
+                "║    {:?}: {} ({:.0}%)",
+                cluster.cluster,
+                cluster.count,
+                cluster.percentage * 100.0
+            );
         }
     }
     println!("╠══════════════════════════════════════╣");
-    println!("║  Duration: {}s  Tokens: {}in/{}out",
-        sc.duration_seconds, sc.total_input_tokens, sc.total_output_tokens);
+    println!(
+        "║  Duration: {}s  Tokens: {}in/{}out",
+        sc.duration_seconds, sc.total_input_tokens, sc.total_output_tokens
+    );
     println!("╚══════════════════════════════════════╝");
 }
 
@@ -409,21 +523,26 @@ fn build_scorer_config() -> ScorerConfig {
 }
 
 fn build_llm_client() -> Result<std::sync::Arc<dyn agentforge_runner::LlmClient>> {
-    let provider = std::env::var("AGENTFORGE_JUDGE_PROVIDER").unwrap_or_else(|_| "openai".to_string());
+    let provider =
+        std::env::var("AGENTFORGE_JUDGE_PROVIDER").unwrap_or_else(|_| "openai".to_string());
     match provider.as_str() {
         "anthropic" => Ok(std::sync::Arc::new(
             AnthropicClient::from_env()
-                .ok_or_else(|| anyhow::anyhow!("ANTHROPIC_API_KEY must be set"))?
-        ) as std::sync::Arc<dyn agentforge_runner::LlmClient>),
+                .ok_or_else(|| anyhow::anyhow!("ANTHROPIC_API_KEY must be set"))?,
+        )
+            as std::sync::Arc<dyn agentforge_runner::LlmClient>),
         _ => Ok(std::sync::Arc::new(
             OpenAiClient::from_env()
-                .ok_or_else(|| anyhow::anyhow!("OPENAI_API_KEY must be set"))?
-        ) as std::sync::Arc<dyn agentforge_runner::LlmClient>),
+                .ok_or_else(|| anyhow::anyhow!("OPENAI_API_KEY must be set"))?,
+        )
+            as std::sync::Arc<dyn agentforge_runner::LlmClient>),
     }
 }
 
 async fn require_db() -> Result<agentforge_db::PgPool> {
-    let url = std::env::var("DATABASE_URL")
-        .context("DATABASE_URL must be set for database commands")?;
-    create_pool(&url).await.context("Failed to connect to database")
+    let url =
+        std::env::var("DATABASE_URL").context("DATABASE_URL must be set for database commands")?;
+    create_pool(&url)
+        .await
+        .context("Failed to connect to database")
 }

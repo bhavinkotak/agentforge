@@ -1,7 +1,6 @@
 use agentforge_core::{
     AgentFile, AgentForgeError, EvalHints, ModelConfig, ModelProvider, Result, ToolDefinition,
 };
-use crate::formats::native::parse_provider;
 
 /// Normalize OpenAI Assistants API JSON into `AgentFile`.
 /// https://platform.openai.com/docs/api-reference/assistants
@@ -23,13 +22,17 @@ pub fn normalize(value: &serde_json::Value) -> Result<AgentFile> {
     let system_prompt = value
         .get("instructions")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| AgentForgeError::ValidationError("OpenAI: missing 'instructions' field".to_string()))?
+        .ok_or_else(|| {
+            AgentForgeError::ValidationError("OpenAI: missing 'instructions' field".to_string())
+        })?
         .to_string();
 
     let model_id = value
         .get("model")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| AgentForgeError::ValidationError("OpenAI: missing 'model' field".to_string()))?
+        .ok_or_else(|| {
+            AgentForgeError::ValidationError("OpenAI: missing 'model' field".to_string())
+        })?
         .to_string();
 
     let temperature = value.get("temperature").and_then(|t| t.as_f64());
@@ -91,7 +94,11 @@ fn parse_openai_tools(value: &serde_json::Value) -> Result<Vec<ToolDefinition>> 
                     .get("parameters")
                     .cloned()
                     .unwrap_or_else(|| serde_json::json!({"type": "object", "properties": {}}));
-                Some(Ok(ToolDefinition { name, description, parameters }))
+                Some(Ok(ToolDefinition {
+                    name,
+                    description,
+                    parameters,
+                }))
             } else {
                 // Ignore non-function tools (code_interpreter, file_search, etc.)
                 None

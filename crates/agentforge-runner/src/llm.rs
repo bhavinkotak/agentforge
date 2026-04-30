@@ -1,6 +1,6 @@
+use agentforge_core::{AgentForgeError, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use agentforge_core::{AgentForgeError, Result};
 
 /// A message in the LLM conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,7 +80,11 @@ pub struct OpenAiClient {
 }
 
 impl OpenAiClient {
-    pub fn new(base_url: impl Into<String>, api_key: impl Into<String>, model: impl Into<String>) -> Self {
+    pub fn new(
+        base_url: impl Into<String>,
+        api_key: impl Into<String>,
+        model: impl Into<String>,
+    ) -> Self {
         Self {
             base_url: base_url.into(),
             api_key: api_key.into(),
@@ -94,8 +98,8 @@ impl OpenAiClient {
 
     pub fn from_env() -> Option<Self> {
         let api_key = std::env::var("OPENAI_API_KEY").ok()?;
-        let model = std::env::var("AGENTFORGE_OPENAI_MODEL")
-            .unwrap_or_else(|_| "gpt-4o".to_string());
+        let model =
+            std::env::var("AGENTFORGE_OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
         Some(Self::new("https://api.openai.com/v1", api_key, model))
     }
 }
@@ -103,29 +107,33 @@ impl OpenAiClient {
 #[async_trait]
 impl LlmClient for OpenAiClient {
     async fn complete(&self, request: LlmRequest) -> Result<LlmResponse> {
-        let messages: Vec<serde_json::Value> = request.messages.iter().map(|m| {
-            let mut obj = serde_json::json!({
-                "role": match m.role {
-                    LlmRole::System => "system",
-                    LlmRole::User => "user",
-                    LlmRole::Assistant => "assistant",
-                    LlmRole::Tool => "tool",
+        let messages: Vec<serde_json::Value> = request
+            .messages
+            .iter()
+            .map(|m| {
+                let mut obj = serde_json::json!({
+                    "role": match m.role {
+                        LlmRole::System => "system",
+                        LlmRole::User => "user",
+                        LlmRole::Assistant => "assistant",
+                        LlmRole::Tool => "tool",
+                    }
+                });
+                if let Some(content) = &m.content {
+                    obj["content"] = serde_json::json!(content);
                 }
-            });
-            if let Some(content) = &m.content {
-                obj["content"] = serde_json::json!(content);
-            }
-            if let Some(tool_calls) = &m.tool_calls {
-                obj["tool_calls"] = serde_json::to_value(tool_calls).unwrap_or_default();
-            }
-            if let Some(tcid) = &m.tool_call_id {
-                obj["tool_call_id"] = serde_json::json!(tcid);
-            }
-            if let Some(name) = &m.name {
-                obj["name"] = serde_json::json!(name);
-            }
-            obj
-        }).collect();
+                if let Some(tool_calls) = &m.tool_calls {
+                    obj["tool_calls"] = serde_json::to_value(tool_calls).unwrap_or_default();
+                }
+                if let Some(tcid) = &m.tool_call_id {
+                    obj["tool_call_id"] = serde_json::json!(tcid);
+                }
+                if let Some(name) = &m.name {
+                    obj["name"] = serde_json::json!(name);
+                }
+                obj
+            })
+            .collect();
 
         let mut body = serde_json::json!({
             "model": request.model,
@@ -143,7 +151,8 @@ impl LlmClient for OpenAiClient {
         }
 
         let start = std::time::Instant::now();
-        let resp = self.client
+        let resp = self
+            .client
             .post(format!("{}/chat/completions", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
@@ -215,7 +224,10 @@ fn parse_openai_response(raw: serde_json::Value, latency_ms: u64) -> Result<LlmR
                         tool_type: tc["type"].as_str().unwrap_or("function").to_string(),
                         function: ToolCallFunction {
                             name: tc["function"]["name"].as_str()?.to_string(),
-                            arguments: tc["function"]["arguments"].as_str().unwrap_or("{}").to_string(),
+                            arguments: tc["function"]["arguments"]
+                                .as_str()
+                                .unwrap_or("{}")
+                                .to_string(),
                         },
                     })
                 })
@@ -224,7 +236,10 @@ fn parse_openai_response(raw: serde_json::Value, latency_ms: u64) -> Result<LlmR
 
     let input_tokens = raw["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
     let output_tokens = raw["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
-    let finish_reason = choice["finish_reason"].as_str().unwrap_or("stop").to_string();
+    let finish_reason = choice["finish_reason"]
+        .as_str()
+        .unwrap_or("stop")
+        .to_string();
     let model = raw["model"].as_str().unwrap_or("unknown").to_string();
 
     Ok(LlmResponse {
@@ -275,11 +290,15 @@ impl AnthropicClient {
 impl LlmClient for AnthropicClient {
     async fn complete(&self, request: LlmRequest) -> Result<LlmResponse> {
         // Split system prompt from messages
-        let system = request.messages.iter()
+        let system = request
+            .messages
+            .iter()
             .find(|m| m.role == LlmRole::System)
             .and_then(|m| m.content.clone());
 
-        let messages: Vec<serde_json::Value> = request.messages.iter()
+        let messages: Vec<serde_json::Value> = request
+            .messages
+            .iter()
             .filter(|m| m.role != LlmRole::System)
             .map(|m| {
                 let role = match m.role {
@@ -322,7 +341,8 @@ impl LlmClient for AnthropicClient {
         }
 
         let start = std::time::Instant::now();
-        let resp = self.client
+        let resp = self
+            .client
             .post("https://api.anthropic.com/v1/messages")
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
@@ -390,7 +410,8 @@ fn parse_anthropic_response(raw: serde_json::Value, latency_ms: u64) -> Result<L
                     tool_type: "function".to_string(),
                     function: ToolCallFunction {
                         name: block["name"].as_str().unwrap_or("").to_string(),
-                        arguments: serde_json::to_string(&block["input"]).unwrap_or_else(|_| "{}".to_string()),
+                        arguments: serde_json::to_string(&block["input"])
+                            .unwrap_or_else(|_| "{}".to_string()),
                     },
                 });
             }
@@ -400,15 +421,26 @@ fn parse_anthropic_response(raw: serde_json::Value, latency_ms: u64) -> Result<L
 
     let input_tokens = raw["usage"]["input_tokens"].as_u64().unwrap_or(0) as u32;
     let output_tokens = raw["usage"]["output_tokens"].as_u64().unwrap_or(0) as u32;
-    let finish_reason = raw["stop_reason"].as_str().unwrap_or("end_turn").to_string();
+    let finish_reason = raw["stop_reason"]
+        .as_str()
+        .unwrap_or("end_turn")
+        .to_string();
     let model = raw["model"].as_str().unwrap_or("unknown").to_string();
 
     Ok(LlmResponse {
         model,
         message: LlmMessage {
             role: LlmRole::Assistant,
-            content: if text_content.is_empty() { None } else { Some(text_content) },
-            tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+            content: if text_content.is_empty() {
+                None
+            } else {
+                Some(text_content)
+            },
+            tool_calls: if tool_calls.is_empty() {
+                None
+            } else {
+                Some(tool_calls)
+            },
             tool_call_id: None,
             name: None,
         },
@@ -485,7 +517,10 @@ mod tests {
             "usage": {"input_tokens": 15, "output_tokens": 8}
         });
         let resp = parse_anthropic_response(raw, 150).unwrap();
-        assert_eq!(resp.message.content.as_deref(), Some("I'll help you with that."));
+        assert_eq!(
+            resp.message.content.as_deref(),
+            Some("I'll help you with that.")
+        );
     }
 
     #[test]

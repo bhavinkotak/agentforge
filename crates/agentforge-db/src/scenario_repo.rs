@@ -1,12 +1,11 @@
+use crate::db_err;
+use agentforge_core::{
+    AgentForgeError, DifficultyTier, Result, Scenario, ScenarioExpected, ScenarioInput,
+    ScenarioSource,
+};
+use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::Utc;
-use agentforge_core::{
-    AgentForgeError, Scenario, ScenarioInput, ScenarioExpected,
-    DifficultyTier, ScenarioSource, ConversationTurn, ConversationRole,
-    ExpectedToolCall, Result,
-};
-use crate::db_err;
 
 pub struct ScenarioRepo {
     pool: PgPool,
@@ -71,10 +70,22 @@ impl ScenarioRepo {
         .fetch_optional(&self.pool)
         .await
         .map_err(db_err)?
-        .ok_or_else(|| AgentForgeError::NotFound { resource: "Scenario", id: id.to_string() })?;
+        .ok_or_else(|| AgentForgeError::NotFound {
+            resource: "Scenario",
+            id: id.to_string(),
+        })?;
 
-        self.row_to_scenario(row.id, row.agent_id, row.input, row.expected,
-            row.difficulty, row.domain, row.source, row.tags, row.created_at)
+        self.row_to_scenario(
+            row.id,
+            row.agent_id,
+            row.input,
+            row.expected,
+            row.difficulty,
+            row.domain,
+            row.source,
+            row.tags,
+            row.created_at,
+        )
     }
 
     pub async fn list_by_agent(&self, agent_id: Uuid, limit: i64) -> Result<Vec<Scenario>> {
@@ -98,11 +109,23 @@ impl ScenarioRepo {
         .map_err(db_err)?;
 
         rows.into_iter()
-            .map(|r| self.row_to_scenario(r.id, r.agent_id, r.input, r.expected,
-                r.difficulty, r.domain, r.source, r.tags, r.created_at))
+            .map(|r| {
+                self.row_to_scenario(
+                    r.id,
+                    r.agent_id,
+                    r.input,
+                    r.expected,
+                    r.difficulty,
+                    r.domain,
+                    r.source,
+                    r.tags,
+                    r.created_at,
+                )
+            })
             .collect()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn row_to_scenario(
         &self,
         id: Uuid,

@@ -1,8 +1,8 @@
+use crate::db_err;
+use agentforge_core::{AgentFile, AgentFileFormat, AgentForgeError, AgentVersion, Result};
+use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::Utc;
-use agentforge_core::{AgentForgeError, AgentVersion, AgentFile, AgentFileFormat, Result};
-use crate::db_err;
 
 pub struct AgentRepo {
     pool: PgPool,
@@ -48,10 +48,19 @@ impl AgentRepo {
         .map_err(db_err)?;
 
         self.row_to_version(
-            row.id, row.name, row.version, row.sha,
-            row.file_content, row.raw_content, row.format,
-            row.promoted, row.is_champion, row.changelog, row.parent_sha,
-            row.created_at, row.updated_at,
+            row.id,
+            row.name,
+            row.version,
+            row.sha,
+            row.file_content,
+            row.raw_content,
+            row.format,
+            row.promoted,
+            row.is_champion,
+            row.changelog,
+            row.parent_sha,
+            row.created_at,
+            row.updated_at,
         )
     }
 
@@ -68,13 +77,25 @@ impl AgentRepo {
         .fetch_optional(&self.pool)
         .await
         .map_err(db_err)?
-        .ok_or_else(|| AgentForgeError::NotFound { resource: "AgentVersion", id: id.to_string() })?;
+        .ok_or_else(|| AgentForgeError::NotFound {
+            resource: "AgentVersion",
+            id: id.to_string(),
+        })?;
 
         self.row_to_version(
-            row.id, row.name, row.version, row.sha,
-            row.file_content, row.raw_content, row.format,
-            row.promoted, row.is_champion, row.changelog, row.parent_sha,
-            row.created_at, row.updated_at,
+            row.id,
+            row.name,
+            row.version,
+            row.sha,
+            row.file_content,
+            row.raw_content,
+            row.format,
+            row.promoted,
+            row.is_champion,
+            row.changelog,
+            row.parent_sha,
+            row.created_at,
+            row.updated_at,
         )
     }
 
@@ -94,10 +115,19 @@ impl AgentRepo {
 
         match row {
             Some(r) => Ok(Some(self.row_to_version(
-                r.id, r.name, r.version, r.sha,
-                r.file_content, r.raw_content, r.format,
-                r.promoted, r.is_champion, r.changelog, r.parent_sha,
-                r.created_at, r.updated_at,
+                r.id,
+                r.name,
+                r.version,
+                r.sha,
+                r.file_content,
+                r.raw_content,
+                r.format,
+                r.promoted,
+                r.is_champion,
+                r.changelog,
+                r.parent_sha,
+                r.created_at,
+                r.updated_at,
             )?)),
             None => Ok(None),
         }
@@ -121,10 +151,19 @@ impl AgentRepo {
         rows.into_iter()
             .map(|r| {
                 self.row_to_version(
-                    r.id, r.name, r.version, r.sha,
-                    r.file_content, r.raw_content, r.format,
-                    r.promoted, r.is_champion, r.changelog, r.parent_sha,
-                    r.created_at, r.updated_at,
+                    r.id,
+                    r.name,
+                    r.version,
+                    r.sha,
+                    r.file_content,
+                    r.raw_content,
+                    r.format,
+                    r.promoted,
+                    r.is_champion,
+                    r.changelog,
+                    r.parent_sha,
+                    r.created_at,
+                    r.updated_at,
                 )
             })
             .collect()
@@ -149,10 +188,19 @@ impl AgentRepo {
         rows.into_iter()
             .map(|r| {
                 self.row_to_version(
-                    r.id, r.name, r.version, r.sha,
-                    r.file_content, r.raw_content, r.format,
-                    r.promoted, r.is_champion, r.changelog, r.parent_sha,
-                    r.created_at, r.updated_at,
+                    r.id,
+                    r.name,
+                    r.version,
+                    r.sha,
+                    r.file_content,
+                    r.raw_content,
+                    r.format,
+                    r.promoted,
+                    r.is_champion,
+                    r.changelog,
+                    r.parent_sha,
+                    r.created_at,
+                    r.updated_at,
                 )
             })
             .collect()
@@ -195,6 +243,7 @@ impl AgentRepo {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn row_to_version(
         &self,
         id: Uuid,

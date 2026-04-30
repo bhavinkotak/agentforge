@@ -1,8 +1,7 @@
-use agentforge_core::{AgentFile, AgentForgeError, FailureCluster, Result, Scorecard, Trace};
 use crate::mutations::{
-    inject_few_shot_examples, rewrite_prompt, rewrite_tool_descriptions,
-    tighten_output_schema,
+    inject_few_shot_examples, rewrite_prompt, rewrite_tool_descriptions, tighten_output_schema,
 };
+use agentforge_core::{AgentFile, Result, Scorecard, Trace};
 
 /// Configuration for the optimizer.
 #[derive(Debug, Clone)]
@@ -105,7 +104,8 @@ impl Optimizer {
                         variants.push(AgentVariant {
                             agent: pv,
                             mutation_type: MutationType::PromptRewrite,
-                            description: "Prompt rewritten for clarity and constraint tightening".to_string(),
+                            description: "Prompt rewritten for clarity and constraint tightening"
+                                .to_string(),
                             parent_sha: parent_sha.to_string(),
                         });
                     }
@@ -133,7 +133,9 @@ impl Optimizer {
                         variants.push(AgentVariant {
                             agent: tv,
                             mutation_type: MutationType::ToolDescriptionRewrite,
-                            description: "Tool descriptions rewritten with examples and type constraints".to_string(),
+                            description:
+                                "Tool descriptions rewritten with examples and type constraints"
+                                    .to_string(),
                             parent_sha: parent_sha.to_string(),
                         });
                     }
@@ -149,7 +151,8 @@ impl Optimizer {
                 variants.push(AgentVariant {
                     agent: schema_variant,
                     mutation_type: MutationType::OutputSchemaTighten,
-                    description: "Output schema tightened with stricter required fields".to_string(),
+                    description: "Output schema tightened with stricter required fields"
+                        .to_string(),
                     parent_sha: parent_sha.to_string(),
                 });
                 mutation_types.push(MutationType::OutputSchemaTighten);
@@ -211,7 +214,8 @@ fn reorder_instructions(agent: &AgentFile, parent_sha: &str) -> AgentVariant {
 
     // Prepend a summary of critical constraints to the system prompt
     if !new_agent.constraints.is_empty() {
-        let critical = new_agent.constraints
+        let critical = new_agent
+            .constraints
             .iter()
             .take(3)
             .map(|c| format!("- {}", c))
@@ -220,8 +224,7 @@ fn reorder_instructions(agent: &AgentFile, parent_sha: &str) -> AgentVariant {
 
         let new_prompt = format!(
             "CRITICAL RULES (always follow these first):\n{}\n\n{}",
-            critical,
-            new_agent.system_prompt
+            critical, new_agent.system_prompt
         );
         new_agent.system_prompt = new_prompt;
     }
@@ -237,10 +240,7 @@ fn reorder_instructions(agent: &AgentFile, parent_sha: &str) -> AgentVariant {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agentforge_core::{
-        DimensionScores, EvalWeights, FailureCluster, FailureClusterSummary, ModelConfig,
-        ModelProvider, Scorecard,
-    };
+    use agentforge_core::{DimensionScores, ModelConfig, ModelProvider, Scorecard};
     use uuid::Uuid;
 
     fn make_agent() -> AgentFile {

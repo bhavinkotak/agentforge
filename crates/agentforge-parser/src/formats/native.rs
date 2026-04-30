@@ -39,9 +39,9 @@ pub fn normalize(value: &serde_json::Value) -> Result<AgentFile> {
 }
 
 fn parse_model(value: &serde_json::Value) -> Result<ModelConfig> {
-    let model_obj = value
-        .get("model")
-        .ok_or_else(|| AgentForgeError::ValidationError("Missing required field: model".to_string()))?;
+    let model_obj = value.get("model").ok_or_else(|| {
+        AgentForgeError::ValidationError("Missing required field: model".to_string())
+    })?;
 
     let provider_str = model_obj
         .get("provider")
@@ -52,14 +52,19 @@ fn parse_model(value: &serde_json::Value) -> Result<ModelConfig> {
     let model_id = model_obj
         .get("model_id")
         .and_then(|m| m.as_str())
-        .ok_or_else(|| AgentForgeError::ValidationError("Missing required field: model.model_id".to_string()))?
+        .ok_or_else(|| {
+            AgentForgeError::ValidationError("Missing required field: model.model_id".to_string())
+        })?
         .to_string();
 
     Ok(ModelConfig {
         provider,
         model_id,
         temperature: model_obj.get("temperature").and_then(|t| t.as_f64()),
-        max_tokens: model_obj.get("max_tokens").and_then(|t| t.as_u64()).map(|v| v as u32),
+        max_tokens: model_obj
+            .get("max_tokens")
+            .and_then(|t| t.as_u64())
+            .map(|v| v as u32),
         top_p: model_obj.get("top_p").and_then(|t| t.as_f64()),
     })
 }
@@ -91,7 +96,11 @@ fn parse_tools(value: &serde_json::Value) -> Result<Vec<ToolDefinition>> {
                 .cloned()
                 .unwrap_or_else(|| serde_json::json!({"type": "object", "properties": {}}));
 
-            Ok(ToolDefinition { name, description, parameters })
+            Ok(ToolDefinition {
+                name,
+                description,
+                parameters,
+            })
         })
         .collect()
 }
@@ -111,15 +120,28 @@ fn parse_constraints(value: &serde_json::Value) -> Vec<String> {
 fn parse_eval_hints(value: &serde_json::Value) -> Option<EvalHints> {
     let hints = value.get("eval_hints")?;
     Some(EvalHints {
-        domain: hints.get("domain").and_then(|d| d.as_str()).map(String::from),
-        typical_turns: hints.get("typical_turns").and_then(|t| t.as_u64()).map(|v| v as u32),
+        domain: hints
+            .get("domain")
+            .and_then(|d| d.as_str())
+            .map(String::from),
+        typical_turns: hints
+            .get("typical_turns")
+            .and_then(|t| t.as_u64())
+            .map(|v| v as u32),
         critical_tools: hints
             .get("critical_tools")
             .and_then(|ct| ct.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default(),
         pass_threshold: hints.get("pass_threshold").and_then(|t| t.as_f64()),
-        scenario_count: hints.get("scenario_count").and_then(|s| s.as_u64()).map(|v| v as u32),
+        scenario_count: hints
+            .get("scenario_count")
+            .and_then(|s| s.as_u64())
+            .map(|v| v as u32),
     })
 }
 
@@ -138,9 +160,7 @@ fn string_field(value: &serde_json::Value, field: &str) -> Result<String> {
         .get(field)
         .and_then(|v| v.as_str())
         .map(String::from)
-        .ok_or_else(|| {
-            AgentForgeError::ValidationError(format!("Missing required field: {field}"))
-        })
+        .ok_or_else(|| AgentForgeError::ValidationError(format!("Missing required field: {field}")))
 }
 
 #[cfg(test)]

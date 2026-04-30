@@ -24,6 +24,6 @@ postgres-data/
 *.log
 *.jsonl
 
-# Binaries
-agentforge
-agentforge-api
+# Compiled binaries at repo root (not crate directories)
+/agentforge
+/agentforge-api

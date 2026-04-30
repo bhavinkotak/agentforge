@@ -1,14 +1,14 @@
+use crate::llm::{LlmClient, LlmMessage, LlmRequest, LlmRole};
+use agentforge_core::{
+    AgentFile, AgentForgeError, FailureCluster, FinalOutputStep, LlmCallStep, Result, Scenario,
+    ToolCallStep, ToolResultStep, Trace, TraceStatus, TraceStep,
+};
+use chrono::Utc;
+use futures::future::join_all;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Semaphore;
-use futures::future::join_all;
 use uuid::Uuid;
-use chrono::Utc;
-use agentforge_core::{
-    AgentFile, AgentForgeError, Result, Scenario, Trace, TraceStatus, TraceStep,
-    FailureCluster, LlmCallStep, ToolCallStep, ToolResultStep, FinalOutputStep,
-};
-use crate::llm::{LlmClient, LlmMessage, LlmRequest, LlmRole, ToolCall};
 
 /// Configuration for the agent runner.
 #[derive(Debug, Clone)]
@@ -107,7 +107,6 @@ async fn run_single_with_retry(
     scenario: &Scenario,
     config: &RunnerConfig,
 ) -> Trace {
-    let mut last_error = None;
     let mut retry_count = 0;
 
     loop {
@@ -135,7 +134,6 @@ async fn run_single_with_retry(
                         "Transient error, retrying"
                     );
                     tokio::time::sleep(Duration::from_millis(delay)).await;
-                    last_error = Some(e);
                 } else {
                     // Persistent failure
                     return error_trace(scenario, config, retry_count, &e);
@@ -163,15 +161,13 @@ async fn run_single(
     let mut final_output: Option<serde_json::Value> = None;
 
     // Build the initial message list
-    let mut messages: Vec<LlmMessage> = vec![
-        LlmMessage {
-            role: LlmRole::System,
-            content: Some(agent.system_prompt.clone()),
-            tool_calls: None,
-            tool_call_id: None,
-            name: None,
-        },
-    ];
+    let mut messages: Vec<LlmMessage> = vec![LlmMessage {
+        role: LlmRole::System,
+        content: Some(agent.system_prompt.clone()),
+        tool_calls: None,
+        tool_call_id: None,
+        name: None,
+    }];
 
     // Add conversation history
     for turn in &scenario.input.conversation_history {
@@ -202,16 +198,22 @@ async fn run_single(
     let tools: Option<Vec<serde_json::Value>> = if agent.tools.is_empty() {
         None
     } else {
-        Some(agent.tools.iter().map(|t| {
-            serde_json::json!({
-                "type": "function",
-                "function": {
-                    "name": t.name,
-                    "description": t.description,
-                    "parameters": t.parameters
-                }
-            })
-        }).collect())
+        Some(
+            agent
+                .tools
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "type": "function",
+                        "function": {
+                            "name": t.name,
+                            "description": t.description,
+                            "parameters": t.parameters
+                        }
+                    })
+                })
+                .collect(),
+        )
     };
 
     // Agentic loop
@@ -236,7 +238,10 @@ async fn run_single(
         steps.push(TraceStep::LlmCall(LlmCallStep {
             index: step_index,
             model: response.model.clone(),
-            messages: messages.iter().map(|m| serde_json::to_value(m).unwrap_or_default()).collect(),
+            messages: messages
+                .iter()
+                .map(|m| serde_json::to_value(m).unwrap_or_default())
+                .collect(),
             response: response.raw_response.clone(),
             input_tokens: response.input_tokens,
             output_tokens: response.output_tokens,
@@ -333,7 +338,12 @@ async fn run_single(
 }
 
 /// Create an error trace when a scenario cannot be executed.
-fn error_trace(scenario: &Scenario, config: &RunnerConfig, retry_count: u32, error: &AgentForgeError) -> Trace {
+fn error_trace(
+    scenario: &Scenario,
+    config: &RunnerConfig,
+    retry_count: u32,
+    error: &AgentForgeError,
+) -> Trace {
     Trace {
         id: Uuid::new_v4(),
         run_id: config.run_id,
@@ -374,16 +384,14 @@ fn simulate_tool_result(tool_name: &str, args: &serde_json::Value) -> serde_json
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::{LlmMessage, LlmResponse, LlmRole};
     use agentforge_core::{
-        ConversationRole, ConversationTurn, DifficultyTier, EvalHints,
-        ExpectedToolCall, ModelConfig, ModelProvider, ScenarioExpected, ScenarioInput,
-        ScenarioSource, ToolDefinition,
+        DifficultyTier, ModelConfig, ModelProvider, ScenarioExpected, ScenarioInput, ScenarioSource,
     };
-    use crate::llm::{LlmResponse, LlmMessage, LlmRole};
-    use std::sync::Arc;
+    use async_trait::async_trait;
     use mockall::mock;
     use mockall::predicate::*;
-    use async_trait::async_trait;
+    use std::sync::Arc;
 
     mock! {
         TestLlm {}
@@ -462,11 +470,16 @@ mod tests {
     #[tokio::test]
     async fn runner_produces_trace_on_success() {
         let mut mock_llm = MockTestLlm::new();
-        mock_llm.expect_complete()
+        mock_llm
+            .expect_complete()
             .times(1)
             .returning(|_| Ok(make_final_response()));
-        mock_llm.expect_provider_name().return_const("openai".to_string());
-        mock_llm.expect_model_id().return_const("gpt-4o".to_string());
+        mock_llm
+            .expect_provider_name()
+            .return_const("openai".to_string());
+        mock_llm
+            .expect_model_id()
+            .return_const("gpt-4o".to_string());
 
         let agent = make_simple_agent();
         let agent_id = Uuid::new_v4();
@@ -483,14 +496,21 @@ mod tests {
     #[tokio::test]
     async fn runner_marks_error_on_persistent_failure() {
         let mut mock_llm = MockTestLlm::new();
-        mock_llm.expect_complete()
+        mock_llm
+            .expect_complete()
             .times(..) // any number of retries
-            .returning(|_| Err(AgentForgeError::LlmError {
-                provider: "openai".to_string(),
-                message: "Persistent error".to_string(),
-            }));
-        mock_llm.expect_provider_name().return_const("openai".to_string());
-        mock_llm.expect_model_id().return_const("gpt-4o".to_string());
+            .returning(|_| {
+                Err(AgentForgeError::LlmError {
+                    provider: "openai".to_string(),
+                    message: "Persistent error".to_string(),
+                })
+            });
+        mock_llm
+            .expect_provider_name()
+            .return_const("openai".to_string());
+        mock_llm
+            .expect_model_id()
+            .return_const("gpt-4o".to_string());
 
         let agent = make_simple_agent();
         let agent_id = Uuid::new_v4();
@@ -510,11 +530,16 @@ mod tests {
     #[tokio::test]
     async fn runner_runs_concurrently() {
         let mut mock_llm = MockTestLlm::new();
-        mock_llm.expect_complete()
+        mock_llm
+            .expect_complete()
             .times(5)
             .returning(|_| Ok(make_final_response()));
-        mock_llm.expect_provider_name().return_const("openai".to_string());
-        mock_llm.expect_model_id().return_const("gpt-4o".to_string());
+        mock_llm
+            .expect_provider_name()
+            .return_const("openai".to_string());
+        mock_llm
+            .expect_model_id()
+            .return_const("gpt-4o".to_string());
 
         let agent = make_simple_agent();
         let agent_id = Uuid::new_v4();

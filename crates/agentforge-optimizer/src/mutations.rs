@@ -1,5 +1,5 @@
-use agentforge_core::{AgentFile, AgentForgeError, Result, Scorecard, Trace};
 use crate::optimizer::OptimizerConfig;
+use agentforge_core::{AgentFile, AgentForgeError, Result, Scorecard, Trace};
 
 /// Rewrite the system prompt using LLM to improve clarity and constraint specificity.
 pub async fn rewrite_prompt(
@@ -9,7 +9,9 @@ pub async fn rewrite_prompt(
     n: usize,
 ) -> Result<Vec<AgentFile>> {
     if config.llm_api_key.is_empty() {
-        return Err(AgentForgeError::ConfigError("No LLM API key configured for prompt rewriting".to_string()));
+        return Err(AgentForgeError::ConfigError(
+            "No LLM API key configured for prompt rewriting".to_string(),
+        ));
     }
 
     let failure_summary = format!(
@@ -101,7 +103,9 @@ pub async fn rewrite_tool_descriptions(
     n: usize,
 ) -> Result<Vec<AgentFile>> {
     if config.llm_api_key.is_empty() {
-        return Err(AgentForgeError::ConfigError("No LLM API key configured".to_string()));
+        return Err(AgentForgeError::ConfigError(
+            "No LLM API key configured".to_string(),
+        ));
     }
 
     let tools_json = serde_json::to_string_pretty(&agent.tools)
@@ -220,7 +224,10 @@ pub fn inject_few_shot_examples(agent: &AgentFile, passing_traces: &[Trace]) -> 
         .filter_map(|(_, trace)| {
             let output = trace.final_output.as_ref()?;
             let response = output.get("response")?.as_str()?;
-            Some(format!("Example response:\n{}", &response[..response.len().min(300)]))
+            Some(format!(
+                "Example response:\n{}",
+                &response[..response.len().min(300)]
+            ))
         })
         .collect();
 
@@ -245,7 +252,7 @@ pub fn inject_few_shot_examples(agent: &AgentFile, passing_traces: &[Trace]) -> 
 async fn call_llm_api(
     prompt: &str,
     config: &OptimizerConfig,
-    n: usize,
+    _n: usize,
 ) -> Result<serde_json::Value> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(90))
@@ -287,7 +294,9 @@ async fn call_llm_api(
         });
     }
 
-    let raw: serde_json::Value = resp.json().await
+    let raw: serde_json::Value = resp
+        .json()
+        .await
         .map_err(|e| AgentForgeError::HttpError(e.to_string()))?;
 
     let content = raw["choices"][0]["message"]["content"]
