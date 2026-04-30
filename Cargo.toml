@@ -1,0 +1,95 @@
+[workspace]
+members = [
+    "crates/agentforge-core",
+    "crates/agentforge-db",
+    "crates/agentforge-parser",
+    "crates/agentforge-scenarios",
+    "crates/agentforge-runner",
+    "crates/agentforge-scorer",
+    "crates/agentforge-optimizer",
+    "crates/agentforge-gatekeeper",
+    "crates/agentforge-api",
+    "crates/agentforge-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["AgentForge Team"]
+license = "MIT"
+repository = "https://github.com/agentforge/agentforge"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+
+# HTTP
+axum = { version = "0.7", features = ["multipart"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "request-id"] }
+hyper = "1"
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
+deadpool-redis = "0.18"
+redis = { version = "0.27", features = ["tokio-comp"] }
+
+# LLM
+async-openai = "0.27"
+
+# ID / time
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Tracing / observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+opentelemetry = "0.26"
+opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.26", features = ["http-proto", "reqwest-client"] }
+tracing-opentelemetry = "0.27"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Validation
+jsonschema = "0.22"
+
+# Hashing
+sha2 = "0.10"
+hex = "0.4"
+
+# Config
+config = "0.14"
+dotenvy = "0.15"
+
+# Async utils
+futures = "0.3"
+async-trait = "0.1"
+
+# Testing
+wiremock = "0.6"
+mockall = "0.13"
+pretty_assertions = "1"
+tokio-test = "0.4"
+
+# Utilities
+indoc = "2"
+once_cell = "1"
+regex = "1"
+itertools = "0.13"
+rand = "0.9"
+base64 = "0.22"
+url = "2"

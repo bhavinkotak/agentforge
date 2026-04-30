@@ -1,0 +1,24 @@
+[package]
+name = "agentforge-gatekeeper"
+description = "Promotion gatekeeper: score gate, regression gate, stability gate (F-06)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+agentforge-core = { path = "../agentforge-core" }
+agentforge-db = { path = "../agentforge-db" }
+agentforge-runner = { path = "../agentforge-runner" }
+agentforge-scorer = { path = "../agentforge-scorer" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+sqlx = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tokio-test = { workspace = true }

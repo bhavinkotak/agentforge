@@ -1,0 +1,23 @@
+[package]
+name = "agentforge-parser"
+description = "Agent file parser and schema validator (F-01)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+agentforge-core = { path = "../agentforge-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+jsonschema = { workspace = true }
+regex = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+indoc = { workspace = true }

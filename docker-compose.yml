@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentforge-postgres
+    environment:
+      POSTGRES_USER: agentforge
+      POSTGRES_PASSWORD: agentforge
+      POSTGRES_DB: agentforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: agentforge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  agentforge-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentforge-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://agentforge:agentforge@postgres:5432/agentforge
+      REDIS_URL: redis://redis:6379
+      AGENTFORGE_LOG_LEVEL: info
+      AGENTFORGE_HOST: 0.0.0.0
+      AGENTFORGE_PORT: 8080
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+
+volumes:
+  postgres_data:
+  redis_data:

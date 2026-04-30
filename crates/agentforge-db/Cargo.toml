@@ -1,0 +1,20 @@
+[package]
+name = "agentforge-db"
+description = "Database layer: SQLx queries and migrations for AgentForge"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+agentforge-core = { path = "../agentforge-core" }
+tokio = { workspace = true }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }

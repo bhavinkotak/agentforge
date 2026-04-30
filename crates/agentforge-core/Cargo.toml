@@ -1,0 +1,12 @@
+[package]
+name = "agentforge-core"
+description = "Shared types, data models, and error types for AgentForge"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }

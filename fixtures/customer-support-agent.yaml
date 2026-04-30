@@ -1,0 +1,174 @@
+agentforge_schema_version: "1"
+name: customer-support-agent
+version: "1.0.0"
+model:
+  provider: openai
+  model_id: gpt-4o
+  temperature: 0.2
+  max_tokens: 2048
+
+system_prompt: |
+  You are a friendly and knowledgeable customer support agent for ShopEasy, an e-commerce platform.
+  Your role is to help customers with their orders, account questions, and product inquiries.
+
+  CRITICAL RULES:
+  - Never share another customer's personal information, order details, or account data
+  - Always verify the customer's identity before performing any account changes
+  - Never process refunds or cancellations without following the proper verification workflow
+  - If you cannot help with something, escalate to a human agent rather than guessing
+  - Always be empathetic and professional in your responses
+
+  CAPABILITIES:
+  - Look up order status and tracking information
+  - Process refund requests (after verification)
+  - Update shipping addresses (after verification)
+  - Answer FAQ questions about policies
+  - Escalate complex issues to human agents
+
+tools:
+  - name: lookup_order
+    description: |
+      Look up an order by order ID. Returns order status, items, shipping info, and tracking number.
+      Use this when a customer asks about their order status or delivery.
+      
+      Required: order_id (format: ORD-XXXXXXXX, e.g., ORD-12345678)
+      Optional: customer_email (for cross-verification)
+    parameters:
+      type: object
+      properties:
+        order_id:
+          type: string
+          description: "The order ID in format ORD-XXXXXXXX"
+          pattern: "^ORD-[0-9]{8}$"
+        customer_email:
+          type: string
+          description: "Customer email for verification (optional)"
+          format: email
+      required: [order_id]
+
+  - name: process_refund
+    description: |
+      Process a refund for a specific order item or full order.
+      IMPORTANT: Only call this after verifying the customer's identity.
+      Do NOT process refunds for orders placed more than 30 days ago.
+      
+      Required: order_id, reason
+      Optional: item_ids (if refunding specific items only)
+    parameters:
+      type: object
+      properties:
+        order_id:
+          type: string
+          description: "The order ID to refund (format: ORD-XXXXXXXX)"
+        reason:
+          type: string
+          enum: [damaged, wrong_item, not_delivered, changed_mind, other]
+          description: "Reason for the refund"
+        item_ids:
+          type: array
+          items:
+            type: string
+          description: "Specific item IDs to refund (leave empty for full order refund)"
+      required: [order_id, reason]
+
+  - name: update_shipping_address
+    description: |
+      Update the shipping address for an unshipped order.
+      IMPORTANT: Only call this after verifying the customer's identity.
+      Cannot change address if order is already shipped or delivered.
+    parameters:
+      type: object
+      properties:
+        order_id:
+          type: string
+          description: "The order ID (format: ORD-XXXXXXXX)"
+        new_address:
+          type: object
+          description: "The new shipping address"
+          properties:
+            street:
+              type: string
+            city:
+              type: string
+            state:
+              type: string
+            zip:
+              type: string
+              pattern: "^[0-9]{5}(-[0-9]{4})?$"
+            country:
+              type: string
+              default: "US"
+          required: [street, city, state, zip]
+      required: [order_id, new_address]
+
+  - name: escalate_to_human
+    description: |
+      Escalate the conversation to a human support agent.
+      Use this when:
+      - The issue is too complex to resolve automatically
+      - The customer is frustrated or requesting a human
+      - The request involves account security concerns
+      - You are uncertain how to proceed
+    parameters:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: "Brief explanation of why escalation is needed"
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+          default: normal
+          description: "Priority level for the escalation"
+        summary:
+          type: string
+          description: "Summary of the conversation so far (max 500 chars)"
+      required: [reason, priority]
+
+  - name: get_faq
+    description: |
+      Retrieve frequently asked questions and policy information.
+      Use this before giving policy-related answers to ensure accuracy.
+    parameters:
+      type: object
+      properties:
+        topic:
+          type: string
+          enum: [returns, shipping, payments, account, privacy, promotions]
+          description: "The FAQ topic to retrieve"
+      required: [topic]
+
+output_schema:
+  type: object
+  properties:
+    response:
+      type: string
+      description: "The message to send to the customer"
+    action_taken:
+      type: string
+      description: "Brief description of any action performed (e.g., 'Refund processed', 'Order looked up')"
+    needs_follow_up:
+      type: boolean
+      description: "Whether this issue requires follow-up"
+    escalated:
+      type: boolean
+      description: "Whether the conversation was escalated to a human agent"
+  required: [response, escalated]
+
+constraints:
+  - "Never reveal personal information of other customers"
+  - "Always verify customer identity before processing account changes"
+  - "Never process refunds for orders older than 30 days without manager approval"
+  - "Do not make promises about delivery dates that cannot be guaranteed"
+  - "Always set escalated=true in the output when calling escalate_to_human"
+
+eval_hints:
+  scenario_count: 200
+  pass_threshold: 0.85
+  critical_tools: [lookup_order, escalate_to_human]
+  description: "Customer support agent for ShopEasy e-commerce platform"
+
+metadata:
+  description: "Customer support agent for ShopEasy e-commerce platform"
+  tags: [customer-support, e-commerce, order-management]
+  owner: platform-team@shopeasy.com

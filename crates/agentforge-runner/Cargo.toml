@@ -1,0 +1,24 @@
+[package]
+name = "agentforge-runner"
+description = "Agent execution engine: parallel workers, trace capture, retry logic (F-03)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+agentforge-core = { path = "../agentforge-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+reqwest = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tokio-test = { workspace = true }
+wiremock = { workspace = true }
+mockall = { workspace = true }

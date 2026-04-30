@@ -1,0 +1,27 @@
+[package]
+name = "agentforge-scorer"
+description = "Trace analyzer and scorer (F-04): deterministic assertions, LLM-as-judge, failure clustering"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+agentforge-core = { path = "../agentforge-core" }
+agentforge-runner = { path = "../agentforge-runner" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+jsonschema = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true }
+itertools = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tokio-test = { workspace = true }
+wiremock = { workspace = true }
+mockall = { workspace = true }

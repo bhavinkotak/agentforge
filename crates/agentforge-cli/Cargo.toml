@@ -1,0 +1,33 @@
+[package]
+name = "agentforge-cli"
+description = "CLI for AgentForge (F-08)"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "agentforge"
+path = "src/main.rs"
+
+[dependencies]
+agentforge-core = { path = "../agentforge-core" }
+agentforge-db = { path = "../agentforge-db" }
+agentforge-parser = { path = "../agentforge-parser" }
+agentforge-scenarios = { path = "../agentforge-scenarios" }
+agentforge-runner = { path = "../agentforge-runner" }
+agentforge-scorer = { path = "../agentforge-scorer" }
+agentforge-gatekeeper = { path = "../agentforge-gatekeeper" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+dotenvy = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
