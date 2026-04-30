@@ -1,8 +1,8 @@
+pub mod anthropic;
+pub mod copilot;
+pub mod crewai;
 pub mod native;
 pub mod openai;
-pub mod anthropic;
-pub mod crewai;
-pub mod copilot;
 
 use agentforge_core::{AgentFile, AgentFileFormat, Result};
 
@@ -10,7 +10,11 @@ use agentforge_core::{AgentFile, AgentFileFormat, Result};
 ///
 /// For `CopilotAgentMd` the `raw` source is passed so we can extract the Markdown body
 /// (everything after the closing `---` frontmatter delimiter) as the system prompt.
-pub fn normalize(format: &AgentFileFormat, value: &serde_json::Value, raw: &str) -> Result<AgentFile> {
+pub fn normalize(
+    format: &AgentFileFormat,
+    value: &serde_json::Value,
+    raw: &str,
+) -> Result<AgentFile> {
     match format {
         AgentFileFormat::NativeYaml => native::normalize(value),
         AgentFileFormat::OpenaiJson => openai::normalize(value),

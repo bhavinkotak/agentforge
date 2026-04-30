@@ -15,13 +15,17 @@ pub fn normalize(value: &serde_json::Value) -> Result<AgentFile> {
         .get("system")
         .or_else(|| value.get("system_prompt"))
         .and_then(|v| v.as_str())
-        .ok_or_else(|| AgentForgeError::ValidationError("Anthropic: missing 'system' field".to_string()))?
+        .ok_or_else(|| {
+            AgentForgeError::ValidationError("Anthropic: missing 'system' field".to_string())
+        })?
         .to_string();
 
     let model_id = value
         .get("model")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| AgentForgeError::ValidationError("Anthropic: missing 'model' field".to_string()))?
+        .ok_or_else(|| {
+            AgentForgeError::ValidationError("Anthropic: missing 'model' field".to_string())
+        })?
         .to_string();
 
     let max_tokens = value
@@ -71,7 +75,9 @@ fn parse_anthropic_tools(value: &serde_json::Value) -> Result<Vec<ToolDefinition
             let name = t
                 .get("name")
                 .and_then(|n| n.as_str())
-                .ok_or_else(|| AgentForgeError::ValidationError("Anthropic tool missing name".to_string()))?
+                .ok_or_else(|| {
+                    AgentForgeError::ValidationError("Anthropic tool missing name".to_string())
+                })?
                 .to_string();
 
             let description = t
@@ -86,7 +92,11 @@ fn parse_anthropic_tools(value: &serde_json::Value) -> Result<Vec<ToolDefinition
                 .cloned()
                 .unwrap_or_else(|| serde_json::json!({"type": "object", "properties": {}}));
 
-            Ok(ToolDefinition { name, description, parameters })
+            Ok(ToolDefinition {
+                name,
+                description,
+                parameters,
+            })
         })
         .collect()
 }

@@ -1,5 +1,8 @@
-use axum::{http::StatusCode, response::{IntoResponse, Json, Response}};
 use agentforge_core::AgentForgeError;
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Json, Response},
+};
 use serde_json::json;
 
 /// Axum-compatible error type that serializes to JSON.
@@ -11,19 +14,40 @@ pub struct ApiError {
 
 impl ApiError {
     pub fn not_found(msg: impl Into<String>) -> Self {
-        Self { status: StatusCode::NOT_FOUND, code: "NOT_FOUND", message: msg.into() }
+        Self {
+            status: StatusCode::NOT_FOUND,
+            code: "NOT_FOUND",
+            message: msg.into(),
+        }
     }
     pub fn bad_request(msg: impl Into<String>) -> Self {
-        Self { status: StatusCode::BAD_REQUEST, code: "BAD_REQUEST", message: msg.into() }
+        Self {
+            status: StatusCode::BAD_REQUEST,
+            code: "BAD_REQUEST",
+            message: msg.into(),
+        }
     }
     pub fn internal(msg: impl Into<String>) -> Self {
-        Self { status: StatusCode::INTERNAL_SERVER_ERROR, code: "INTERNAL_ERROR", message: msg.into() }
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            code: "INTERNAL_ERROR",
+            message: msg.into(),
+        }
     }
+    #[allow(dead_code)]
     pub fn conflict(msg: impl Into<String>) -> Self {
-        Self { status: StatusCode::CONFLICT, code: "CONFLICT", message: msg.into() }
+        Self {
+            status: StatusCode::CONFLICT,
+            code: "CONFLICT",
+            message: msg.into(),
+        }
     }
     pub fn unprocessable(msg: impl Into<String>) -> Self {
-        Self { status: StatusCode::UNPROCESSABLE_ENTITY, code: "UNPROCESSABLE_ENTITY", message: msg.into() }
+        Self {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            code: "UNPROCESSABLE_ENTITY",
+            message: msg.into(),
+        }
     }
 }
 

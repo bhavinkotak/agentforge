@@ -28,7 +28,10 @@ pub fn validate_agent_file(agent: &AgentFile) -> ValidationResult {
     }
 
     if agent.system_prompt.trim().is_empty() {
-        errors.push(lint_error("system_prompt", "System prompt must not be empty"));
+        errors.push(lint_error(
+            "system_prompt",
+            "System prompt must not be empty",
+        ));
     }
 
     if agent.model.model_id.is_empty() {
@@ -46,9 +49,8 @@ pub fn validate_agent_file(agent: &AgentFile) -> ValidationResult {
     }
 
     // Tool validation
-    let tool_names: std::collections::HashSet<&str> = agent.tools.iter()
-        .map(|t| t.name.as_str())
-        .collect();
+    let tool_names: std::collections::HashSet<&str> =
+        agent.tools.iter().map(|t| t.name.as_str()).collect();
 
     if tool_names.len() != agent.tools.len() {
         errors.push(lint_error("tools", "Duplicate tool names detected"));

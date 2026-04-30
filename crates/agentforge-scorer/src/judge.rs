@@ -1,5 +1,7 @@
-use agentforge_core::{AgentFile, DimensionScore, Result, Scenario, ScoringMethod, Trace, TraceStep};
 use crate::scorer::ScorerConfig;
+use agentforge_core::{
+    AgentFile, DimensionScore, Result, Scenario, ScoringMethod, Trace, TraceStep,
+};
 
 /// Result of an LLM judge evaluation.
 pub struct JudgeResult {
@@ -31,15 +33,22 @@ pub async fn run_llm_judge(
     }
 
     // Build a minimal context for the judge
-    let final_output = trace.final_output.as_ref()
+    let final_output = trace
+        .final_output
+        .as_ref()
         .map(|o| serde_json::to_string_pretty(o).unwrap_or_default())
         .unwrap_or_else(|| "<no output>".to_string());
 
-    let tool_summary: String = trace.steps.iter()
+    let tool_summary: String = trace
+        .steps
+        .iter()
         .filter_map(|s| {
             if let TraceStep::ToolCall(tc) = s {
-                Some(format!("{}({})", tc.tool_name,
-                    serde_json::to_string(&tc.arguments).unwrap_or_default()))
+                Some(format!(
+                    "{}({})",
+                    tc.tool_name,
+                    serde_json::to_string(&tc.arguments).unwrap_or_default()
+                ))
             } else {
                 None
             }
@@ -89,31 +98,47 @@ pub async fn run_llm_judge(
         });
     }
 
-    let resp_json: serde_json::Value = resp.json().await
+    let resp_json: serde_json::Value = resp
+        .json()
+        .await
         .map_err(|e| agentforge_core::AgentForgeError::ParseError(e.to_string()))?;
 
     let content = resp_json["choices"][0]["message"]["content"]
         .as_str()
         .unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(content)
-        .unwrap_or_default();
+    let parsed: serde_json::Value = serde_json::from_str(content).unwrap_or_default();
 
     let task_completion = DimensionScore {
-        value: parsed["task_completion"].as_f64().unwrap_or(0.5).clamp(0.0, 1.0),
-        confidence: parsed["task_confidence"].as_f64().unwrap_or(0.7).clamp(0.0, 1.0),
+        value: parsed["task_completion"]
+            .as_f64()
+            .unwrap_or(0.5)
+            .clamp(0.0, 1.0),
+        confidence: parsed["task_confidence"]
+            .as_f64()
+            .unwrap_or(0.7)
+            .clamp(0.0, 1.0),
         method: ScoringMethod::LlmJudge,
         rationale: parsed["task_rationale"].as_str().map(String::from),
     };
 
     let instruction_adherence = DimensionScore {
-        value: parsed["instruction_adherence"].as_f64().unwrap_or(0.5).clamp(0.0, 1.0),
-        confidence: parsed["adherence_confidence"].as_f64().unwrap_or(0.7).clamp(0.0, 1.0),
+        value: parsed["instruction_adherence"]
+            .as_f64()
+            .unwrap_or(0.5)
+            .clamp(0.0, 1.0),
+        confidence: parsed["adherence_confidence"]
+            .as_f64()
+            .unwrap_or(0.7)
+            .clamp(0.0, 1.0),
         method: ScoringMethod::LlmJudge,
         rationale: parsed["adherence_rationale"].as_str().map(String::from),
     };
 
-    Ok(JudgeResult { task_completion, instruction_adherence })
+    Ok(JudgeResult {
+        task_completion,
+        instruction_adherence,
+    })
 }
 
 /// Heuristic fallback for task completion when LLM judge is unavailable.
@@ -121,11 +146,16 @@ pub fn heuristic_task_completion(trace: &Trace, scenario: &Scenario) -> Dimensio
     // If agent has a final output and called some tools, assume partial success
     let has_output = trace.final_output.is_some();
     let called_required = {
-        let required: Vec<&str> = scenario.expected.tool_calls.iter()
+        let required: Vec<&str> = scenario
+            .expected
+            .tool_calls
+            .iter()
             .filter(|tc| tc.required)
             .map(|tc| tc.tool_name.as_str())
             .collect();
-        let called: Vec<&str> = trace.steps.iter()
+        let called: Vec<&str> = trace
+            .steps
+            .iter()
             .filter_map(|s| {
                 if let TraceStep::ToolCall(tc) = s {
                     Some(tc.tool_name.as_str())
@@ -170,18 +200,24 @@ fn heuristic_instruction_adherence(trace: &Trace, agent: &AgentFile) -> Dimensio
     }
 
     // Collect all text from trace
-    let all_text: String = trace.steps.iter().filter_map(|s| {
-        if let TraceStep::LlmCall(call) = s {
-            call.response.get("choices")
-                .and_then(|c| c.get(0))
-                .and_then(|c| c.get("message"))
-                .and_then(|m| m.get("content"))
-                .and_then(|c| c.as_str())
-                .map(String::from)
-        } else {
-            None
-        }
-    }).collect::<Vec<_>>().join(" ");
+    let all_text: String = trace
+        .steps
+        .iter()
+        .filter_map(|s| {
+            if let TraceStep::LlmCall(call) = s {
+                call.response
+                    .get("choices")
+                    .and_then(|c| c.get(0))
+                    .and_then(|c| c.get("message"))
+                    .and_then(|m| m.get("content"))
+                    .and_then(|c| c.as_str())
+                    .map(String::from)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
 
     let value = if all_text.is_empty() { 0.5 } else { 0.7 };
 

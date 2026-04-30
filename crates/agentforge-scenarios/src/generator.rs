@@ -2,7 +2,7 @@ use agentforge_core::{AgentFile, Result, Scenario};
 
 use crate::{
     adversarial::generate_adversarial_scenarios,
-    domain_seeded::{DomainSeededConfig, generate_domain_seeded_scenarios},
+    domain_seeded::{generate_domain_seeded_scenarios, DomainSeededConfig},
     schema_derived::generate_schema_derived_scenarios,
 };
 
@@ -26,9 +26,7 @@ pub struct ScenarioGeneratorConfig {
 impl ScenarioGeneratorConfig {
     /// Validate that ratios sum to approximately 1.0
     pub fn validate(&self) -> bool {
-        let total = self.schema_derived_ratio
-            + self.adversarial_ratio
-            + self.domain_seeded_ratio;
+        let total = self.schema_derived_ratio + self.adversarial_ratio + self.domain_seeded_ratio;
         (total - 1.0).abs() < 0.01
     }
 }
@@ -84,7 +82,10 @@ pub async fn generate_scenarios(
             agent_id: config.agent_id,
             llm_base_url: config.llm_base_url.clone(),
             llm_api_key: config.llm_api_key.clone(),
-            llm_model: config.llm_model.clone().unwrap_or_else(|| "gpt-4o-mini".to_string()),
+            llm_model: config
+                .llm_model
+                .clone()
+                .unwrap_or_else(|| "gpt-4o-mini".to_string()),
         };
 
         match generate_domain_seeded_scenarios(agent, &domain_config).await {
@@ -152,7 +153,9 @@ mod tests {
                 },
                 "required": ["response"]
             })),
-            constraints: vec!["Always confirm order ID before calling get_order_status.".to_string()],
+            constraints: vec![
+                "Always confirm order ID before calling get_order_status.".to_string()
+            ],
             eval_hints: Some(EvalHints {
                 domain: Some("customer_support".to_string()),
                 typical_turns: Some(3),

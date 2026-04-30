@@ -1,13 +1,8 @@
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json, Response},
     routing::{get, post},
     Router,
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use uuid::Uuid;
 
 mod error;
 mod routes;

@@ -55,7 +55,8 @@ fn has_markdown_body_after_frontmatter(content: &str) -> bool {
 
 fn classify_json_format(v: &serde_json::Value) -> AgentFileFormat {
     // OpenAI Assistants API: has "instructions" and "tools" array at root, no "system_prompt"
-    if v.get("instructions").is_some() && v.get("tools").is_some()
+    if v.get("instructions").is_some()
+        && v.get("tools").is_some()
         && v.get("system_prompt").is_none()
     {
         return AgentFileFormat::OpenaiJson;
@@ -135,8 +136,12 @@ version: "1.0.0"
 
     #[test]
     fn detects_anthropic_json() {
-        let content = r#"{"system": "You are helpful.", "tools": [], "model": "claude-3-5-sonnet-20241022"}"#;
-        assert_eq!(detect_format(content).unwrap(), AgentFileFormat::AnthropicJson);
+        let content =
+            r#"{"system": "You are helpful.", "tools": [], "model": "claude-3-5-sonnet-20241022"}"#;
+        assert_eq!(
+            detect_format(content).unwrap(),
+            AgentFileFormat::AnthropicJson
+        );
     }
 
     #[test]
@@ -174,7 +179,10 @@ tools: ['github/*', 'read']
 
 You are a GitHub Actions specialist.
 "#;
-        assert_eq!(detect_format(content).unwrap(), AgentFileFormat::CopilotAgentMd);
+        assert_eq!(
+            detect_format(content).unwrap(),
+            AgentFileFormat::CopilotAgentMd
+        );
     }
 
     #[test]

@@ -1,10 +1,10 @@
 use agentforge_core::{
-    AgentFile, DifficultyTier, Result, Scenario, ScenarioExpected, ScenarioInput,
-    ScenarioSource, AgentForgeError,
+    AgentFile, AgentForgeError, DifficultyTier, Result, Scenario, ScenarioExpected, ScenarioInput,
+    ScenarioSource,
 };
-use uuid::Uuid;
 use chrono::Utc;
 use regex::Regex;
+use uuid::Uuid;
 
 pub struct DomainSeededConfig {
     pub count: usize,
@@ -125,7 +125,9 @@ fn parse_llm_scenarios(
     } else if let Some(arr) = parsed.get("scenarios").and_then(|s| s.as_array()) {
         arr
     } else {
-        return Err(AgentForgeError::ParseError("LLM response did not contain a scenarios array".to_string()));
+        return Err(AgentForgeError::ParseError(
+            "LLM response did not contain a scenarios array".to_string(),
+        ));
     };
 
     let scenarios = arr
@@ -156,7 +158,8 @@ fn parse_llm_scenarios(
                         .map(|name| agentforge_core::ExpectedToolCall {
                             tool_name: name.to_string(),
                             required: true,
-                            argument_schema: agent.tools
+                            argument_schema: agent
+                                .tools
                                 .iter()
                                 .find(|t| t.name == name)
                                 .map(|t| t.parameters.clone()),
@@ -202,12 +205,7 @@ fn generate_heuristic(
     let domain_scenarios = domain_templates(domain, keywords, &agent.tools);
     let mut scenarios = Vec::new();
 
-    for (i, (msg, criteria, difficulty)) in domain_scenarios
-        .into_iter()
-        .cycle()
-        .take(config.count)
-        .enumerate()
-    {
+    for (msg, criteria, difficulty) in domain_scenarios.into_iter().cycle().take(config.count) {
         // Associate scenarios with the most relevant tools based on keywords
         let relevant_tools: Vec<agentforge_core::ExpectedToolCall> = agent
             .tools
@@ -255,8 +253,14 @@ fn domain_templates(
     keywords: &[String],
     tools: &[agentforge_core::ToolDefinition],
 ) -> Vec<(String, String, DifficultyTier)> {
-    let keyword_sample = keywords.first().cloned().unwrap_or_else(|| "the requested task".to_string());
-    let tool_name = tools.first().map(|t| t.name.as_str()).unwrap_or("the appropriate tool");
+    let keyword_sample = keywords
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "the requested task".to_string());
+    let _tool_name = tools
+        .first()
+        .map(|t| t.name.as_str())
+        .unwrap_or("the appropriate tool");
 
     match domain {
         "customer_support" => vec![
@@ -266,7 +270,7 @@ fn domain_templates(
                 DifficultyTier::Easy,
             ),
             (
-                format!("My order ORD-12345678 is showing as 'processing' for 5 days. Can you expedite it?"),
+                "My order ORD-12345678 is showing as 'processing' for 5 days. Can you expedite it?".to_string(),
                 "Agent should check the order status and either escalate or provide accurate timeline.".to_string(),
                 DifficultyTier::Medium,
             ),
@@ -317,10 +321,9 @@ fn domain_templates(
 pub fn extract_domain_keywords(system_prompt: &str) -> Vec<String> {
     // Remove common stop words and extract content words
     let stop_words = [
-        "you", "are", "the", "a", "an", "and", "or", "but", "in", "on", "at",
-        "to", "for", "of", "with", "is", "be", "will", "should", "always",
-        "never", "must", "can", "have", "has", "do", "does", "your", "our",
-        "their", "its", "this", "that", "these", "those", "not", "no",
+        "you", "are", "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of",
+        "with", "is", "be", "will", "should", "always", "never", "must", "can", "have", "has",
+        "do", "does", "your", "our", "their", "its", "this", "that", "these", "those", "not", "no",
     ];
 
     let word_re = Regex::new(r"\b[a-zA-Z]{4,}\b").expect("valid regex");
@@ -346,7 +349,9 @@ mod tests {
         let prompt = "You are a helpful customer support agent for an e-commerce platform. \
             Always verify order details before making changes.";
         let keywords = extract_domain_keywords(prompt);
-        assert!(keywords.iter().any(|k| k.contains("customer") || k.contains("support") || k.contains("order")));
+        assert!(keywords
+            .iter()
+            .any(|k| k.contains("customer") || k.contains("support") || k.contains("order")));
     }
 
     #[test]
@@ -356,7 +361,13 @@ mod tests {
             agentforge_schema_version: "1".to_string(),
             name: "test".to_string(),
             version: "1.0.0".to_string(),
-            model: ModelConfig { provider: ModelProvider::Openai, model_id: "gpt-4o".to_string(), temperature: None, max_tokens: None, top_p: None },
+            model: ModelConfig {
+                provider: ModelProvider::Openai,
+                model_id: "gpt-4o".to_string(),
+                temperature: None,
+                max_tokens: None,
+                top_p: None,
+            },
             system_prompt: "You are a customer support agent.".to_string(),
             tools: vec![],
             output_schema: None,
@@ -375,7 +386,9 @@ mod tests {
             llm_model: "gpt-4o-mini".to_string(),
         };
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let scenarios = rt.block_on(generate_domain_seeded_scenarios(&agent, &config)).unwrap();
+        let scenarios = rt
+            .block_on(generate_domain_seeded_scenarios(&agent, &config))
+            .unwrap();
         assert_eq!(scenarios.len(), 5);
     }
 }

@@ -6,10 +6,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use agentforge_core::{AgentVersion, Scorecard, ScorecardDiff};
+use agentforge_core::AgentVersion;
 use agentforge_db::agent_repo::AgentRepo;
 
-use crate::{error::{ApiError, ApiResult}, state::AppState};
+use crate::{
+    error::{ApiError, ApiResult},
+    state::AppState,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct DiffQuery {
@@ -67,17 +70,19 @@ pub async fn get_diff(
 ) -> ApiResult<Json<DiffResponse>> {
     let repo = AgentRepo::new(state.db.clone());
 
-    let v1 = repo.find_by_id(params.v1).await
-        .map_err(|e| match e {
-            agentforge_core::AgentForgeError::NotFound { .. } => ApiError::not_found(format!("Agent version {} not found", params.v1)),
-            other => ApiError::internal(other.to_string()),
-        })?;
+    let v1 = repo.find_by_id(params.v1).await.map_err(|e| match e {
+        agentforge_core::AgentForgeError::NotFound { .. } => {
+            ApiError::not_found(format!("Agent version {} not found", params.v1))
+        }
+        other => ApiError::internal(other.to_string()),
+    })?;
 
-    let v2 = repo.find_by_id(params.v2).await
-        .map_err(|e| match e {
-            agentforge_core::AgentForgeError::NotFound { .. } => ApiError::not_found(format!("Agent version {} not found", params.v2)),
-            other => ApiError::internal(other.to_string()),
-        })?;
+    let v2 = repo.find_by_id(params.v2).await.map_err(|e| match e {
+        agentforge_core::AgentForgeError::NotFound { .. } => {
+            ApiError::not_found(format!("Agent version {} not found", params.v2))
+        }
+        other => ApiError::internal(other.to_string()),
+    })?;
 
     let diff = compute_diff(&v1, &v2);
     Ok(Json(diff))
@@ -88,24 +93,53 @@ fn compute_diff(v1: &AgentVersion, v2: &AgentVersion) -> DiffResponse {
     let prompt1 = v1.file_content.system_prompt.as_str();
     let prompt2 = v2.file_content.system_prompt.as_str();
     let system_prompt_diff = if prompt1 != prompt2 {
-        Some(format!("- Version {} prompt differs from version {}", v1.version, v2.version))
+        Some(format!(
+            "- Version {} prompt differs from version {}",
+            v1.version, v2.version
+        ))
     } else {
         None
     };
 
     // Tool changes
-    let tools1: Vec<String> = v1.file_content.tools.iter().map(|t| t.name.clone()).collect();
-    let tools2: Vec<String> = v2.file_content.tools.iter().map(|t| t.name.clone()).collect();
+    let tools1: Vec<String> = v1
+        .file_content
+        .tools
+        .iter()
+        .map(|t| t.name.clone())
+        .collect();
+    let tools2: Vec<String> = v2
+        .file_content
+        .tools
+        .iter()
+        .map(|t| t.name.clone())
+        .collect();
 
-    let added_tools: Vec<String> = tools2.iter().filter(|t| !tools1.contains(t)).cloned().collect();
-    let removed_tools: Vec<String> = tools1.iter().filter(|t| !tools2.contains(t)).cloned().collect();
+    let added_tools: Vec<String> = tools2
+        .iter()
+        .filter(|t| !tools1.contains(t))
+        .cloned()
+        .collect();
+    let removed_tools: Vec<String> = tools1
+        .iter()
+        .filter(|t| !tools2.contains(t))
+        .cloned()
+        .collect();
 
     // Constraint changes
     let constraints1: Vec<String> = v1.file_content.constraints.clone();
     let constraints2: Vec<String> = v2.file_content.constraints.clone();
 
-    let added_constraints: Vec<String> = constraints2.iter().filter(|c| !constraints1.contains(c)).cloned().collect();
-    let removed_constraints: Vec<String> = constraints1.iter().filter(|c| !constraints2.contains(c)).cloned().collect();
+    let added_constraints: Vec<String> = constraints2
+        .iter()
+        .filter(|c| !constraints1.contains(c))
+        .cloned()
+        .collect();
+    let removed_constraints: Vec<String> = constraints1
+        .iter()
+        .filter(|c| !constraints2.contains(c))
+        .cloned()
+        .collect();
 
     DiffResponse {
         v1: v1.clone().into(),

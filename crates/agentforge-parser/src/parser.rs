@@ -1,8 +1,8 @@
-use agentforge_core::{AgentFile, AgentFileFormat, AgentForgeError, AgentVersion, LintError, Result};
-use sha2::{Sha256, Digest};
-use uuid::Uuid;
+use crate::{detect::detect_format, formats};
+use agentforge_core::{AgentFile, AgentFileFormat, AgentForgeError, AgentVersion, Result};
 use chrono::Utc;
-use crate::{detect::detect_format, formats, validator};
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 /// The result of parsing a raw agent file.
 #[derive(Debug, Clone)]
@@ -60,20 +60,24 @@ fn parse_to_value(content: &str, format: &AgentFileFormat) -> Result<serde_json:
         AgentFileFormat::OpenaiJson | AgentFileFormat::AnthropicJson => {
             serde_json::from_str(trimmed).map_err(|e| AgentForgeError::ParseError(e.to_string()))
         }
-        AgentFileFormat::NativeYaml | AgentFileFormat::LangchainYaml | AgentFileFormat::CrewaiYaml => {
+        AgentFileFormat::NativeYaml
+        | AgentFileFormat::LangchainYaml
+        | AgentFileFormat::CrewaiYaml => {
             // Handle Markdown frontmatter
             let yaml_content = if trimmed.starts_with("---") {
                 extract_frontmatter(trimmed)?
             } else {
                 trimmed.to_string()
             };
-            serde_yaml::from_str(&yaml_content).map_err(|e| AgentForgeError::ParseError(e.to_string()))
+            serde_yaml::from_str(&yaml_content)
+                .map_err(|e| AgentForgeError::ParseError(e.to_string()))
         }
         AgentFileFormat::CopilotAgentMd => {
             // Parse only the YAML frontmatter as the value;
             // the Markdown body is extracted later in normalize() via the raw content.
             let frontmatter = extract_frontmatter(trimmed)?;
-            serde_yaml::from_str(&frontmatter).map_err(|e| AgentForgeError::ParseError(e.to_string()))
+            serde_yaml::from_str(&frontmatter)
+                .map_err(|e| AgentForgeError::ParseError(e.to_string()))
         }
     }
 }
@@ -175,7 +179,10 @@ mod tests {
         }"#;
         let result = parse_agent_file(content).unwrap();
         assert_eq!(result.format, AgentFileFormat::OpenaiJson);
-        assert_eq!(result.agent.system_prompt, "You are a helpful support agent.");
+        assert_eq!(
+            result.agent.system_prompt,
+            "You are a helpful support agent."
+        );
     }
 
     #[test]

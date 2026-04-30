@@ -11,7 +11,9 @@ pub fn normalize(value: &serde_json::Value) -> Result<AgentFile> {
             .get("agents")
             .and_then(|a| a.as_array())
             .and_then(|a| a.first())
-            .ok_or_else(|| AgentForgeError::ValidationError("CrewAI: 'agents' array is empty".to_string()))?
+            .ok_or_else(|| {
+                AgentForgeError::ValidationError("CrewAI: 'agents' array is empty".to_string())
+            })?
     } else {
         value
     };
@@ -21,10 +23,7 @@ pub fn normalize(value: &serde_json::Value) -> Result<AgentFile> {
         .and_then(|r| r.as_str())
         .ok_or_else(|| AgentForgeError::ValidationError("CrewAI: missing 'role'".to_string()))?;
 
-    let goal = agent
-        .get("goal")
-        .and_then(|g| g.as_str())
-        .unwrap_or("");
+    let goal = agent.get("goal").and_then(|g| g.as_str()).unwrap_or("");
 
     let backstory = agent
         .get("backstory")
@@ -38,9 +37,7 @@ pub fn normalize(value: &serde_json::Value) -> Result<AgentFile> {
         .to_string();
 
     // Construct system prompt from CrewAI fields
-    let system_prompt = format!(
-        "You are {role}.\n\nGoal: {goal}\n\nBackstory: {backstory}"
-    );
+    let system_prompt = format!("You are {role}.\n\nGoal: {goal}\n\nBackstory: {backstory}");
 
     let model_id = agent
         .get("llm")
@@ -68,15 +65,11 @@ pub fn normalize(value: &serde_json::Value) -> Result<AgentFile> {
         .map(|arr| {
             arr.iter()
                 .filter_map(|t| {
-                    if let Some(name) = t.as_str() {
-                        Some(ToolDefinition {
-                            name: name.to_string(),
-                            description: format!("Tool: {name}"),
-                            parameters: serde_json::json!({"type": "object", "properties": {}}),
-                        })
-                    } else {
-                        None
-                    }
+                    t.as_str().map(|name| ToolDefinition {
+                        name: name.to_string(),
+                        description: format!("Tool: {name}"),
+                        parameters: serde_json::json!({"type": "object", "properties": {}}),
+                    })
                 })
                 .collect()
         })

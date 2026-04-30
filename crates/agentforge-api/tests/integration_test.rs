@@ -1,18 +1,12 @@
-/// Integration tests for the AgentForge API.
-/// These tests mock both LLM APIs (OpenAI / Anthropic) using wiremock.
-/// They do NOT require a real database (they use a test database via TEST_DATABASE_URL or are skipped).
-
-use std::sync::Arc;
 use uuid::Uuid;
 use wiremock::{
     matchers::{method, path},
     Mock, MockServer, ResponseTemplate,
 };
 
-use agentforge_core::{AgentFile, AgentFileFormat, DimensionScores, EvalRunStatus, ModelConfig, ModelProvider};
+use agentforge_core::{AgentFileFormat, ModelProvider};
 use agentforge_parser::{parse_agent_file, to_agent_version, validate_agent_file};
 use agentforge_scenarios::{generate_scenarios, ScenarioGeneratorConfig};
-use agentforge_scorer::ScorerConfig;
 
 const SAMPLE_AGENT_YAML: &str = r#"
 agentforge_schema_version: "1"
@@ -85,7 +79,11 @@ fn parse_sample_agent_yaml() {
 fn validate_sample_agent_passes() {
     let parsed = parse_agent_file(SAMPLE_AGENT_YAML).unwrap();
     let result = validate_agent_file(&parsed.agent);
-    assert!(result.errors.is_empty(), "Unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "Unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]
@@ -153,17 +151,20 @@ async fn schema_derived_scenarios_generated() {
     .await
     .unwrap();
 
-    assert!(
-        !scenarios.is_empty(),
-        "Should generate at least 1 scenario"
-    );
+    assert!(!scenarios.is_empty(), "Should generate at least 1 scenario");
     assert!(scenarios.len() <= 10);
 
     // Non-adversarial scenarios should have non-empty user messages;
     // adversarial "empty_input" scenarios are intentionally empty.
     use agentforge_core::ScenarioSource;
-    for s in scenarios.iter().filter(|s| s.source != ScenarioSource::Adversarial) {
-        assert!(!s.input.user_message.is_empty(), "non-adversarial scenario has empty user_message");
+    for s in scenarios
+        .iter()
+        .filter(|s| s.source != ScenarioSource::Adversarial)
+    {
+        assert!(
+            !s.input.user_message.is_empty(),
+            "non-adversarial scenario has empty user_message"
+        );
     }
 }
 
@@ -172,7 +173,10 @@ async fn adversarial_scenarios_include_edge_cases() {
     use agentforge_scenarios::adversarial::generate_adversarial_scenarios;
     let parsed = parse_agent_file(SAMPLE_AGENT_YAML).unwrap();
     let scenarios = generate_adversarial_scenarios(&parsed.agent, 10, Uuid::new_v4()).unwrap();
-    assert!(scenarios.len() >= 5, "Expected at least 5 adversarial scenarios");
+    assert!(
+        scenarios.len() >= 5,
+        "Expected at least 5 adversarial scenarios"
+    );
 }
 
 // ─── Runner tests with mocked LLM ─────────────────────────────────────────
@@ -232,7 +236,13 @@ async fn runner_completes_with_mocked_llm() {
         "gpt-4o".to_string(),
     ));
 
-    let runner = AgentRunner::new(client, RunnerConfig { concurrency: 2, ..Default::default() });
+    let runner = AgentRunner::new(
+        client,
+        RunnerConfig {
+            concurrency: 2,
+            ..Default::default()
+        },
+    );
     let run_result = runner.run(&parsed.agent, scenarios.clone(), None).await;
     let traces = run_result.traces;
 
@@ -243,7 +253,7 @@ async fn runner_completes_with_mocked_llm() {
 
 #[test]
 fn gatekeeper_first_promotion_approved() {
-    use agentforge_core::{DimensionScores, FailureClusterSummary, Scorecard};
+    use agentforge_core::{DimensionScores, Scorecard};
     use agentforge_gatekeeper::{GateStatus, Gatekeeper, GatekeeperConfig};
 
     let challenger = Scorecard {
@@ -273,13 +283,22 @@ fn gatekeeper_first_promotion_approved() {
     };
 
     let gk = Gatekeeper::new(GatekeeperConfig::default());
-    let decision = gk.evaluate(
-        Uuid::new_v4(), Uuid::new_v4(),
-        None, &challenger, &[], &[],
-        &[0.88, 0.87, 0.89],
-    ).unwrap();
+    let decision = gk
+        .evaluate(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            None,
+            &challenger,
+            &[],
+            &[],
+            &[0.88, 0.87, 0.89],
+        )
+        .unwrap();
 
-    assert!(decision.approved, "First promotion should be approved automatically");
+    assert!(
+        decision.approved,
+        "First promotion should be approved automatically"
+    );
     assert_eq!(decision.gates[0].status, GateStatus::Waived);
     assert_eq!(decision.gates[1].status, GateStatus::Waived);
 }
@@ -288,7 +307,7 @@ fn gatekeeper_first_promotion_approved() {
 
 #[tokio::test]
 async fn optimizer_generates_variants_without_llm() {
-    use agentforge_core::{DimensionScores, FailureClusterSummary, ModelConfig, ModelProvider, Scorecard};
+    use agentforge_core::{DimensionScores, Scorecard};
     use agentforge_optimizer::{Optimizer, OptimizerConfig};
 
     let parsed = parse_agent_file(SAMPLE_AGENT_YAML).unwrap();
@@ -325,7 +344,10 @@ async fn optimizer_generates_variants_without_llm() {
         ..Default::default()
     });
 
-    let result = optimizer.generate_variants(&parsed.agent, &scorecard, &[], "sha123").await.unwrap();
+    let result = optimizer
+        .generate_variants(&parsed.agent, &scorecard, &[], "sha123")
+        .await
+        .unwrap();
     assert!(result.variants.len() >= 2);
     assert!(result.variants.len() <= 8);
 

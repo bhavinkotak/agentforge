@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// An evaluation run of an agent version against a scenario set.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,7 +172,8 @@ impl EvalRun {
             review_needed: 0,
             dimension_scores: scores,
             failure_clusters: self.failure_clusters.clone().unwrap_or_default(),
-            duration_seconds: self.completed_at
+            duration_seconds: self
+                .completed_at
                 .zip(self.started_at)
                 .map(|(c, s)| (c - s).num_seconds().max(0) as u64)
                 .unwrap_or(0),

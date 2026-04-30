@@ -1,10 +1,13 @@
-use agentforge_core::{AgentFile, DimensionScores, EvalWeights, FailureCluster, Result, Scenario, Scorecard, Trace, TraceStatus};
-use uuid::Uuid;
 use crate::{
     clusters::classify_failure_cluster,
     deterministic::run_deterministic_checks,
     judge::{heuristic_task_completion, run_llm_judge},
 };
+use agentforge_core::{
+    AgentFile, DimensionScores, EvalWeights, FailureCluster, Result, Scenario, Scorecard, Trace,
+    TraceStatus,
+};
+use uuid::Uuid;
 
 /// Configuration for the trace scorer.
 #[derive(Debug, Clone)]
@@ -33,6 +36,7 @@ impl Default for ScorerConfig {
 
 /// The main trace scorer.
 pub struct TraceScorer {
+    #[allow(dead_code)]
     config: ScorerConfig,
 }
 
@@ -59,24 +63,23 @@ pub async fn score_trace(
     let det = run_deterministic_checks(trace, scenario, agent);
 
     // 2. Run LLM judge for semantic dimensions
-    let (task_completion, instruction_adherence) =
-        if !config.judge_api_key.is_empty() {
-            match run_llm_judge(trace, scenario, agent, config).await {
-                Ok(judge_result) => (
-                    judge_result.task_completion,
-                    judge_result.instruction_adherence,
-                ),
-                Err(e) => {
-                    tracing::warn!(error = %e, "LLM judge failed, using heuristic fallback");
-                    let tc = heuristic_task_completion(trace, scenario);
-                    (tc, det.instruction_adherence.clone())
-                }
+    let (task_completion, instruction_adherence) = if !config.judge_api_key.is_empty() {
+        match run_llm_judge(trace, scenario, agent, config).await {
+            Ok(judge_result) => (
+                judge_result.task_completion,
+                judge_result.instruction_adherence,
+            ),
+            Err(e) => {
+                tracing::warn!(error = %e, "LLM judge failed, using heuristic fallback");
+                let tc = heuristic_task_completion(trace, scenario);
+                (tc, det.instruction_adherence.clone())
             }
-        } else {
-            // No judge configured — use heuristic
-            let tc = heuristic_task_completion(trace, scenario);
-            (tc, det.instruction_adherence.clone())
-        };
+        }
+    } else {
+        // No judge configured — use heuristic
+        let tc = heuristic_task_completion(trace, scenario);
+        (tc, det.instruction_adherence.clone())
+    };
 
     let scores = DimensionScores {
         task_completion: task_completion.value,
@@ -131,16 +134,14 @@ pub async fn score_trace(
 
 /// Score a full batch of traces and build the run scorecard.
 pub async fn score_run(
-    traces: &mut Vec<Trace>,
+    traces: &mut [Trace],
     scenarios: &[Scenario],
     agent: &AgentFile,
     run_id: Uuid,
     config: &ScorerConfig,
 ) -> Result<Scorecard> {
-    let scenario_map: std::collections::HashMap<Uuid, &Scenario> = scenarios
-        .iter()
-        .map(|s| (s.id, s))
-        .collect();
+    let scenario_map: std::collections::HashMap<Uuid, &Scenario> =
+        scenarios.iter().map(|s| (s.id, s)).collect();
 
     for trace in traces.iter_mut() {
         if let Some(scenario) = scenario_map.get(&trace.scenario_id) {
@@ -156,25 +157,37 @@ pub async fn score_run(
 
     // Aggregate scores
     let total = traces.len() as u32;
-    let passed = traces.iter().filter(|t| t.status == TraceStatus::Pass).count() as u32;
-    let failed = traces.iter().filter(|t| t.status == TraceStatus::Fail).count() as u32;
-    let errors = traces.iter().filter(|t| t.status == TraceStatus::Error).count() as u32;
+    let passed = traces
+        .iter()
+        .filter(|t| t.status == TraceStatus::Pass)
+        .count() as u32;
+    let failed = traces
+        .iter()
+        .filter(|t| t.status == TraceStatus::Fail)
+        .count() as u32;
+    let errors = traces
+        .iter()
+        .filter(|t| t.status == TraceStatus::Error)
+        .count() as u32;
     let review = traces.iter().filter(|t| t.review_needed).count() as u32;
 
-    let pass_rate = if total > 0 { passed as f64 / total as f64 } else { 0.0 };
+    let pass_rate = if total > 0 {
+        passed as f64 / total as f64
+    } else {
+        0.0
+    };
 
     let avg_scores = average_dimension_scores(traces);
     let aggregate_score = avg_scores.weighted_aggregate(&config.weights);
 
     let failure_clusters = build_failure_cluster_summary(traces);
 
-    let (total_input_tokens, total_output_tokens) = traces.iter().fold((0u64, 0u64), |(i, o), t| {
-        (i + t.input_tokens as u64, o + t.output_tokens as u64)
-    });
+    let (total_input_tokens, total_output_tokens) =
+        traces.iter().fold((0u64, 0u64), |(i, o), t| {
+            (i + t.input_tokens as u64, o + t.output_tokens as u64)
+        });
 
-    let duration_seconds = traces.iter()
-        .map(|t| t.latency_ms)
-        .sum::<u64>() / 1000;
+    let duration_seconds = traces.iter().map(|t| t.latency_ms).sum::<u64>() / 1000;
 
     Ok(Scorecard {
         run_id,
@@ -197,9 +210,7 @@ pub async fn score_run(
 }
 
 fn average_dimension_scores(traces: &[Trace]) -> DimensionScores {
-    let scorable: Vec<&DimensionScores> = traces.iter()
-        .filter_map(|t| t.scores.as_ref())
-        .collect();
+    let scorable: Vec<&DimensionScores> = traces.iter().filter_map(|t| t.scores.as_ref()).collect();
 
     if scorable.is_empty() {
         return DimensionScores::default();
@@ -211,23 +222,28 @@ fn average_dimension_scores(traces: &[Trace]) -> DimensionScores {
         tool_selection: scorable.iter().map(|s| s.tool_selection).sum::<f64>() / n,
         argument_correctness: scorable.iter().map(|s| s.argument_correctness).sum::<f64>() / n,
         schema_compliance: scorable.iter().map(|s| s.schema_compliance).sum::<f64>() / n,
-        instruction_adherence: scorable.iter().map(|s| s.instruction_adherence).sum::<f64>() / n,
+        instruction_adherence: scorable
+            .iter()
+            .map(|s| s.instruction_adherence)
+            .sum::<f64>()
+            / n,
         path_efficiency: scorable.iter().map(|s| s.path_efficiency).sum::<f64>() / n,
     }
 }
 
-fn build_failure_cluster_summary(
-    traces: &[Trace],
-) -> Vec<agentforge_core::FailureClusterSummary> {
+fn build_failure_cluster_summary(traces: &[Trace]) -> Vec<agentforge_core::FailureClusterSummary> {
     use std::collections::HashMap;
     let mut cluster_counts: HashMap<FailureCluster, (u32, Vec<Uuid>)> = HashMap::new();
 
-    let failed_traces: Vec<&Trace> = traces.iter()
+    let failed_traces: Vec<&Trace> = traces
+        .iter()
         .filter(|t| t.status == TraceStatus::Fail || t.status == TraceStatus::Error)
         .collect();
 
     for trace in &failed_traces {
-        let entry = cluster_counts.entry(trace.failure_cluster.clone()).or_default();
+        let entry = cluster_counts
+            .entry(trace.failure_cluster.clone())
+            .or_default();
         entry.0 += 1;
         if entry.1.len() < 3 {
             entry.1.push(trace.scenario_id);
@@ -235,22 +251,29 @@ fn build_failure_cluster_summary(
     }
 
     let total_failed = failed_traces.len() as f64;
-    cluster_counts.into_iter().map(|(cluster, (count, samples))| {
-        agentforge_core::FailureClusterSummary {
-            percentage: if total_failed > 0.0 { count as f64 / total_failed } else { 0.0 },
-            cluster,
-            count,
-            sample_scenarios: samples,
-        }
-    }).collect()
+    cluster_counts
+        .into_iter()
+        .map(
+            |(cluster, (count, samples))| agentforge_core::FailureClusterSummary {
+                percentage: if total_failed > 0.0 {
+                    count as f64 / total_failed
+                } else {
+                    0.0
+                },
+                cluster,
+                count,
+                sample_scenarios: samples,
+            },
+        )
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use agentforge_core::{
-        DifficultyTier, ExpectedToolCall, FinalOutputStep, ModelConfig, ModelProvider,
-        ScenarioExpected, ScenarioInput, ScenarioSource, ToolCallStep, TraceStep,
+        DifficultyTier, FinalOutputStep, ModelConfig, ModelProvider, ScenarioExpected,
+        ScenarioInput, ScenarioSource, TraceStep,
     };
     use chrono::Utc;
 
@@ -260,14 +283,14 @@ mod tests {
             run_id,
             scenario_id,
             status: TraceStatus::Pass,
-            steps: vec![
-                TraceStep::FinalOutput(FinalOutputStep {
-                    index: 0,
-                    output: serde_json::json!({"response": "Here is the information you requested about your order."}),
-                    timestamp: Utc::now(),
-                })
-            ],
-            final_output: Some(serde_json::json!({"response": "Here is the information you requested about your order."})),
+            steps: vec![TraceStep::FinalOutput(FinalOutputStep {
+                index: 0,
+                output: serde_json::json!({"response": "Here is the information you requested about your order."}),
+                timestamp: Utc::now(),
+            })],
+            final_output: Some(
+                serde_json::json!({"response": "Here is the information you requested about your order."}),
+            ),
             scores: None,
             aggregate_score: None,
             failure_cluster: FailureCluster::NoFailure,
@@ -300,7 +323,8 @@ mod tests {
                     "properties": {"response": {"type": "string"}},
                     "required": ["response"]
                 })),
-                pass_criteria: "Agent should provide a helpful response about the order.".to_string(),
+                pass_criteria: "Agent should provide a helpful response about the order."
+                    .to_string(),
                 min_turns: None,
                 max_turns: None,
             },
@@ -351,7 +375,9 @@ mod tests {
             ..Default::default()
         };
 
-        score_trace(&mut trace, &scenario, &agent, &config).await.unwrap();
+        score_trace(&mut trace, &scenario, &agent, &config)
+            .await
+            .unwrap();
         assert!(trace.aggregate_score.is_some());
         assert!(trace.scores.is_some());
     }
@@ -370,7 +396,9 @@ mod tests {
             ..Default::default()
         };
 
-        score_trace(&mut trace, &scenario, &agent, &config).await.unwrap();
+        score_trace(&mut trace, &scenario, &agent, &config)
+            .await
+            .unwrap();
         assert_eq!(trace.aggregate_score, Some(0.0));
     }
 

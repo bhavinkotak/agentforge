@@ -1,4 +1,4 @@
-use agentforge_core::{DimensionScores, FailureCluster, Trace, TraceStep, TraceStatus};
+use agentforge_core::{DimensionScores, FailureCluster, Trace, TraceStatus, TraceStep};
 
 /// Classify the primary failure reason for a trace into one of the known clusters.
 pub fn classify_failure_cluster(
@@ -67,10 +67,14 @@ pub fn classify_failure_cluster(
 
 /// Detect if the agent entered a loop (many repeated LLM calls with no tool calls between them).
 fn detect_loop(trace: &Trace) -> bool {
-    let llm_count = trace.steps.iter()
+    let llm_count = trace
+        .steps
+        .iter()
         .filter(|s| matches!(s, TraceStep::LlmCall(_)))
         .count();
-    let tool_count = trace.steps.iter()
+    let tool_count = trace
+        .steps
+        .iter()
         .filter(|s| matches!(s, TraceStep::ToolCall(_)))
         .count();
 
@@ -83,7 +87,13 @@ mod tests {
     use super::*;
     use agentforge_core::{FailureCluster, TraceStatus};
 
-    fn make_scores(tool: f64, args: f64, schema: f64, adherence: f64, efficiency: f64) -> DimensionScores {
+    fn make_scores(
+        tool: f64,
+        args: f64,
+        schema: f64,
+        adherence: f64,
+        efficiency: f64,
+    ) -> DimensionScores {
         DimensionScores {
             task_completion: 0.5,
             tool_selection: tool,
@@ -140,7 +150,7 @@ mod tests {
 
     #[test]
     fn low_schema_compliance_is_schema_violation() {
-        let mut trace = make_empty_trace(TraceStatus::Fail);
+        let trace = make_empty_trace(TraceStatus::Fail);
         let scores = make_scores(1.0, 1.0, 0.1, 1.0, 1.0);
         assert_eq!(
             classify_failure_cluster(&trace, &scores, &[]),

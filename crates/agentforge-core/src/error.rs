@@ -36,7 +36,9 @@ pub enum AgentForgeError {
         required: f64,
     },
 
-    #[error("Gatekeeper failed - regression gate: pass_rate={pass_rate:.3} required={required:.3}")]
+    #[error(
+        "Gatekeeper failed - regression gate: pass_rate={pass_rate:.3} required={required:.3}"
+    )]
     RegressionGateFailed { pass_rate: f64, required: f64 },
 
     #[error("Gatekeeper failed - stability gate: only {seeds} seeds run, need {required}")]

@@ -1,4 +1,4 @@
-use agentforge_core::{AgentForgeError, Result, Scorecard, Trace, TraceStatus};
+use agentforge_core::{Result, Scorecard, Trace, TraceStatus};
 use uuid::Uuid;
 
 /// Configuration for all promotion gates.
@@ -92,6 +92,7 @@ impl Gatekeeper {
     /// `champion_passing_scenario_ids`: The set of scenario IDs the champion passed.
     /// `challenger_traces`: The challenger's traces (for regression analysis).
     /// `challenger_seed_scores`: Aggregate scores from each seed run (for stability).
+    #[allow(clippy::too_many_arguments)]
     pub fn evaluate(
         &self,
         run_id: Uuid,
@@ -106,15 +107,13 @@ impl Gatekeeper {
 
         // 1. Score Gate
         let score_gate = self.check_score_gate(champion_scorecard, challenger_scorecard);
-        let score_passed = score_gate.status == GateStatus::Pass
-            || score_gate.status == GateStatus::Waived;
+        let score_passed =
+            score_gate.status == GateStatus::Pass || score_gate.status == GateStatus::Waived;
         gates.push(score_gate);
 
         // 2. Regression Gate
-        let regression_gate = self.check_regression_gate(
-            champion_passing_scenario_ids,
-            challenger_traces,
-        );
+        let regression_gate =
+            self.check_regression_gate(champion_passing_scenario_ids, challenger_traces);
         let regression_passed = regression_gate.status == GateStatus::Pass
             || regression_gate.status == GateStatus::Waived;
         gates.push(regression_gate);
@@ -140,7 +139,8 @@ impl Gatekeeper {
 
         if !approved {
             // Return gates info but surface the primary reason as an error type
-            let failed_gates: Vec<String> = gates.iter()
+            let failed_gates: Vec<String> = gates
+                .iter()
                 .filter(|g| g.status == GateStatus::Fail)
                 .map(|g| format!("{}: {}", g.gate, g.message))
                 .collect();
@@ -150,7 +150,10 @@ impl Gatekeeper {
                 agent_id,
                 approved: false,
                 gates,
-                changelog: format!("Promotion DENIED. Failed gates:\n{}", failed_gates.join("\n")),
+                changelog: format!(
+                    "Promotion DENIED. Failed gates:\n{}",
+                    failed_gates.join("\n")
+                ),
             });
         }
 
@@ -163,11 +166,7 @@ impl Gatekeeper {
         })
     }
 
-    fn check_score_gate(
-        &self,
-        champion: Option<&Scorecard>,
-        challenger: &Scorecard,
-    ) -> GateResult {
+    fn check_score_gate(&self, champion: Option<&Scorecard>, challenger: &Scorecard) -> GateResult {
         let Some(champ) = champion else {
             return GateResult {
                 gate: GateKind::Score,
@@ -311,7 +310,10 @@ fn build_changelog(
     gates: &[GateResult],
 ) -> String {
     let mut lines = vec![
-        format!("# Promotion: {} v{}", challenger.agent_name, challenger.agent_version),
+        format!(
+            "# Promotion: {} v{}",
+            challenger.agent_name, challenger.agent_version
+        ),
         String::new(),
         "## Score Summary".to_string(),
     ];
@@ -326,26 +328,39 @@ fn build_changelog(
         let cd = &champ.dimension_scores;
         lines.push(format!(
             "- Task Completion: {:.3} → {:.3} ({:+.3})",
-            cd.task_completion, d.task_completion, d.task_completion - cd.task_completion
+            cd.task_completion,
+            d.task_completion,
+            d.task_completion - cd.task_completion
         ));
         lines.push(format!(
             "- Tool Selection: {:.3} → {:.3} ({:+.3})",
-            cd.tool_selection, d.tool_selection, d.tool_selection - cd.tool_selection
+            cd.tool_selection,
+            d.tool_selection,
+            d.tool_selection - cd.tool_selection
         ));
         lines.push(format!(
             "- Argument Correctness: {:.3} → {:.3} ({:+.3})",
-            cd.argument_correctness, d.argument_correctness, d.argument_correctness - cd.argument_correctness
+            cd.argument_correctness,
+            d.argument_correctness,
+            d.argument_correctness - cd.argument_correctness
         ));
         lines.push(format!(
             "- Schema Compliance: {:.3} → {:.3} ({:+.3})",
-            cd.schema_compliance, d.schema_compliance, d.schema_compliance - cd.schema_compliance
+            cd.schema_compliance,
+            d.schema_compliance,
+            d.schema_compliance - cd.schema_compliance
         ));
         lines.push(format!(
             "- Instruction Adherence: {:.3} → {:.3} ({:+.3})",
-            cd.instruction_adherence, d.instruction_adherence, d.instruction_adherence - cd.instruction_adherence
+            cd.instruction_adherence,
+            d.instruction_adherence,
+            d.instruction_adherence - cd.instruction_adherence
         ));
     } else {
-        lines.push(format!("- First promotion — aggregate score: {:.3}", challenger.aggregate_score));
+        lines.push(format!(
+            "- First promotion — aggregate score: {:.3}",
+            challenger.aggregate_score
+        ));
     }
 
     lines.push(String::new());
@@ -365,7 +380,7 @@ fn build_changelog(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agentforge_core::{DimensionScores, EvalWeights, FailureClusterSummary, Scorecard};
+    use agentforge_core::{DimensionScores, Scorecard};
     use chrono::Utc;
     use uuid::Uuid;
 
@@ -426,15 +441,17 @@ mod tests {
         let gk = Gatekeeper::new(GatekeeperConfig::default());
         let champion = make_scorecard(0.70);
         let challenger = make_scorecard(0.74);
-        let result = gk.evaluate(
-            Uuid::new_v4(),
-            Uuid::new_v4(),
-            Some(&champion),
-            &challenger,
-            &[],
-            &[],
-            &[0.74, 0.73, 0.75],
-        ).unwrap();
+        let result = gk
+            .evaluate(
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+                Some(&champion),
+                &challenger,
+                &[],
+                &[],
+                &[0.74, 0.73, 0.75],
+            )
+            .unwrap();
         assert!(result.approved);
     }
 
@@ -443,15 +460,17 @@ mod tests {
         let gk = Gatekeeper::new(GatekeeperConfig::default());
         let champion = make_scorecard(0.70);
         let challenger = make_scorecard(0.71); // only +1%, needs +3%
-        let result = gk.evaluate(
-            Uuid::new_v4(),
-            Uuid::new_v4(),
-            Some(&champion),
-            &challenger,
-            &[],
-            &[],
-            &[0.71, 0.71, 0.71],
-        ).unwrap();
+        let result = gk
+            .evaluate(
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+                Some(&champion),
+                &challenger,
+                &[],
+                &[],
+                &[0.71, 0.71, 0.71],
+            )
+            .unwrap();
         assert!(!result.approved);
         assert_eq!(result.gates[0].status, GateStatus::Fail);
     }
@@ -460,15 +479,17 @@ mod tests {
     fn waived_when_no_champion() {
         let gk = Gatekeeper::new(GatekeeperConfig::default());
         let challenger = make_scorecard(0.80);
-        let result = gk.evaluate(
-            Uuid::new_v4(),
-            Uuid::new_v4(),
-            None,
-            &challenger,
-            &[],
-            &[],
-            &[0.80, 0.79, 0.81],
-        ).unwrap();
+        let result = gk
+            .evaluate(
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+                None,
+                &challenger,
+                &[],
+                &[],
+                &[0.80, 0.79, 0.81],
+            )
+            .unwrap();
         // All gates should be waived or pass for first promotion
         assert!(result.approved, "First promotion should be approved");
         assert_eq!(result.gates[0].status, GateStatus::Waived);
@@ -501,15 +522,17 @@ mod tests {
             .collect();
 
         let challenger = make_scorecard(0.85);
-        let result = gk.evaluate(
-            Uuid::new_v4(),
-            Uuid::new_v4(),
-            Some(&champion),
-            &challenger,
-            &scenario_ids,
-            &challenger_traces,
-            &[0.85],
-        ).unwrap();
+        let result = gk
+            .evaluate(
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+                Some(&champion),
+                &challenger,
+                &scenario_ids,
+                &challenger_traces,
+                &[0.85],
+            )
+            .unwrap();
         assert!(!result.approved);
         assert_eq!(result.gates[1].status, GateStatus::Fail);
     }
@@ -523,15 +546,17 @@ mod tests {
         });
         let challenger = make_scorecard(0.80);
         // Scores with high variance: 0.80 vs 0.70 = 0.10 delta (> 0.05 threshold)
-        let result = gk.evaluate(
-            Uuid::new_v4(),
-            Uuid::new_v4(),
-            None,
-            &challenger,
-            &[],
-            &[],
-            &[0.80, 0.74, 0.79],
-        ).unwrap();
+        let result = gk
+            .evaluate(
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+                None,
+                &challenger,
+                &[],
+                &[],
+                &[0.80, 0.74, 0.79],
+            )
+            .unwrap();
         assert!(!result.approved);
         assert_eq!(result.gates[2].status, GateStatus::Fail);
     }

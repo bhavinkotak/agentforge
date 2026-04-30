@@ -1,11 +1,10 @@
+use crate::db_err;
+use agentforge_core::{
+    AgentForgeError, DimensionScores, EvalRun, EvalRunStatus, FailureClusterSummary, Result,
+};
+use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::Utc;
-use agentforge_core::{
-    AgentForgeError, EvalRun, EvalRunStatus, DimensionScores,
-    FailureClusterSummary, Result,
-};
-use crate::db_err;
 
 pub struct EvalRepo {
     pool: PgPool,
@@ -18,8 +17,10 @@ impl EvalRepo {
 
     pub async fn insert(&self, run: &EvalRun) -> Result<EvalRun> {
         let status_str = run.status.to_string();
-        let clusters_json = run.failure_clusters.as_ref()
-            .map(|c| serde_json::to_value(c))
+        let _clusters_json = run
+            .failure_clusters
+            .as_ref()
+            .map(serde_json::to_value)
             .transpose()
             .map_err(|e| AgentForgeError::SerializationError(e.to_string()))?;
 
@@ -67,11 +68,18 @@ impl EvalRepo {
         .fetch_optional(&self.pool)
         .await
         .map_err(db_err)?
-        .ok_or_else(|| AgentForgeError::NotFound { resource: "EvalRun", id: id.to_string() })?;
+        .ok_or_else(|| AgentForgeError::NotFound {
+            resource: "EvalRun",
+            id: id.to_string(),
+        })?;
 
         let scores = if let (Some(tc), Some(ts), Some(ac), Some(pe), Some(sc), Some(ia)) = (
-            row.task_completion, row.tool_selection, row.argument_correctness,
-            row.path_efficiency, row.schema_compliance, row.instruction_adherence,
+            row.task_completion,
+            row.tool_selection,
+            row.argument_correctness,
+            row.path_efficiency,
+            row.schema_compliance,
+            row.instruction_adherence,
         ) {
             Some(DimensionScores {
                 task_completion: tc,
@@ -85,8 +93,9 @@ impl EvalRepo {
             None
         };
 
-        let failure_clusters: Option<Vec<FailureClusterSummary>> = row.failure_clusters
-            .map(|v| serde_json::from_value(v))
+        let failure_clusters: Option<Vec<FailureClusterSummary>> = row
+            .failure_clusters
+            .map(serde_json::from_value)
             .transpose()
             .map_err(|e| AgentForgeError::SerializationError(e.to_string()))?;
 
@@ -119,7 +128,10 @@ impl EvalRepo {
         } else {
             None
         };
-        let completed_at = if matches!(status, EvalRunStatus::Complete | EvalRunStatus::Error | EvalRunStatus::Cancelled) {
+        let completed_at = if matches!(
+            status,
+            EvalRunStatus::Complete | EvalRunStatus::Error | EvalRunStatus::Cancelled
+        ) {
             Some(Utc::now())
         } else {
             None

@@ -17,18 +17,23 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer().json())
         .init();
 
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL environment variable is required");
+    let database_url =
+        std::env::var("DATABASE_URL").expect("DATABASE_URL environment variable is required");
     let db = create_pool(&database_url).await?;
     agentforge_db::run_migrations(&db).await?;
 
     let llm_client: Arc<dyn LlmClient> = {
-        let provider = std::env::var("AGENTFORGE_JUDGE_PROVIDER").unwrap_or_else(|_| "openai".to_string());
+        let provider =
+            std::env::var("AGENTFORGE_JUDGE_PROVIDER").unwrap_or_else(|_| "openai".to_string());
         match provider.as_str() {
-            "anthropic" => Arc::new(AnthropicClient::from_env()
-                .expect("ANTHROPIC_API_KEY must be set when using anthropic provider")) as Arc<dyn LlmClient>,
-            _ => Arc::new(OpenAiClient::from_env()
-                .expect("OPENAI_API_KEY must be set when using openai provider")) as Arc<dyn LlmClient>,
+            "anthropic" => Arc::new(
+                AnthropicClient::from_env()
+                    .expect("ANTHROPIC_API_KEY must be set when using anthropic provider"),
+            ) as Arc<dyn LlmClient>,
+            _ => Arc::new(
+                OpenAiClient::from_env()
+                    .expect("OPENAI_API_KEY must be set when using openai provider"),
+            ) as Arc<dyn LlmClient>,
         }
     };
 
