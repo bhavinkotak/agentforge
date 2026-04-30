@@ -27,3 +27,9 @@ postgres-data/
 # Compiled binaries at repo root (not crate directories)
 /agentforge
 /agentforge-api
+
+# Web UI
+web/node_modules/
+web/dist/
+web/.vite/
+web/tsconfig.tsbuildinfo

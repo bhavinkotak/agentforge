@@ -5,7 +5,8 @@ use std::process;
 use uuid::Uuid;
 
 use agentforge_db::{
-    agent_repo::AgentRepo, create_pool, eval_repo::EvalRepo, scenario_repo::ScenarioRepo,
+    agent_repo::AgentRepo, create_pool, eval_repo::EvalRepo,
+    finetune_repo::FineTuneRepo, scenario_repo::ScenarioRepo, shadow_repo::ShadowRepo,
     trace_repo::TraceRepo,
 };
 use agentforge_gatekeeper::{GateStatus, Gatekeeper, GatekeeperConfig};
@@ -49,6 +50,14 @@ enum Commands {
         /// Random seed for reproducibility
         #[arg(long, default_value = "42")]
         seed: u64,
+
+        /// Enable red-team adversarial probes in addition to standard scenarios
+        #[arg(long, default_value = "false")]
+        red_team: bool,
+
+        /// After the eval run, analyze cost and suggest cheaper model alternatives
+        #[arg(long, default_value = "false")]
+        cost_optimize: bool,
     },
 
     /// Compare two agent versions
@@ -71,7 +80,47 @@ enum Commands {
         #[arg(long)]
         run: Uuid,
     },
+
+    /// Start a shadow (online eval) run comparing champion vs. candidate
+    Shadow {
+        /// Champion agent version ID (UUID)
+        #[arg(long)]
+        champion: Uuid,
+        /// Candidate agent version ID (UUID)
+        #[arg(long)]
+        candidate: Uuid,
+        /// Percentage of traffic to route to candidate (1–100)
+        #[arg(long, default_value = "10")]
+        traffic_percent: u8,
+    },
+
+    /// Export labeled traces as a fine-tuning dataset
+    Export {
+        /// Eval run ID to export traces from
+        #[arg(long)]
+        run: Uuid,
+        /// Output format: openai | anthropic | huggingface
+        #[arg(long, default_value = "openai")]
+        format: String,
+        /// Output file path (default: stdout)
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Run an agent against a public benchmark suite
+    Benchmark {
+        /// Path to the agent YAML/JSON file
+        #[arg(short, long)]
+        agent: PathBuf,
+        /// Benchmark suite: gaia | agentbench | webarena
+        #[arg(long)]
+        suite: String,
+        /// Path to the benchmark JSONL task file
+        #[arg(long)]
+        tasks: PathBuf,
+    },
 }
+
 
 #[tokio::main]
 async fn main() {
@@ -113,10 +162,19 @@ async fn run_command(command: Commands) -> Result<i32> {
             scenarios,
             concurrency,
             seed,
-        } => cmd_run(agent, scenarios, concurrency, seed).await,
+            red_team,
+            cost_optimize,
+        } => cmd_run(agent, scenarios, concurrency, seed, red_team, cost_optimize).await,
         Commands::Diff { v1, v2 } => cmd_diff(v1, v2).await,
         Commands::Promote { run_id } => cmd_promote(run_id).await,
         Commands::Scores { run } => cmd_scores(run).await,
+        Commands::Shadow {
+            champion,
+            candidate,
+            traffic_percent,
+        } => cmd_shadow(champion, candidate, traffic_percent).await,
+        Commands::Export { run, format, output } => cmd_export(run, format, output).await,
+        Commands::Benchmark { agent, suite, tasks } => cmd_benchmark(agent, suite, tasks).await,
     }
 }
 
@@ -125,6 +183,8 @@ async fn cmd_run(
     scenario_count: u32,
     concurrency: u32,
     seed: u64,
+    red_team: bool,
+    cost_optimize: bool,
 ) -> Result<i32> {
     let content = std::fs::read_to_string(&agent_path)
         .with_context(|| format!("Failed to read agent file: {}", agent_path.display()))?;
@@ -185,7 +245,7 @@ async fn cmd_run(
     // Generate scenarios
     println!("Generating {} scenarios...", scenario_count);
     let scorer_config = build_scorer_config();
-    let scenarios = generate_scenarios(
+    let mut scenarios = generate_scenarios(
         &agent_file,
         &ScenarioGeneratorConfig {
             total_count: scenario_count,
@@ -202,7 +262,20 @@ async fn cmd_run(
     )
     .await
     .with_context(|| "Scenario generation failed")?;
-    println!("Generated {} scenarios.", scenarios.len());
+
+    // v2: Append red-team scenarios if --red-team flag is set
+    if red_team {
+        use agentforge_redteam::{RedTeamConfig, RedTeamGenerator};
+        let rt_gen = RedTeamGenerator::new(RedTeamConfig {
+            count: (scenario_count / 5).max(10) as usize,
+            seed,
+        });
+        let rt_scenarios = rt_gen.generate(&agent_file);
+        println!("Red-team: appending {} adversarial probes.", rt_scenarios.len());
+        scenarios.extend(rt_scenarios);
+    }
+
+    println!("Generated {} scenarios total.", scenarios.len());
 
     // Build LLM client
     let llm_client = build_llm_client()?;
@@ -243,6 +316,26 @@ async fn cmd_run(
 
     // Print results
     print_scorecard(&scorecard);
+
+    // v2: Cost optimizer analysis
+    if cost_optimize {
+        use agentforge_optimizer::CostOptimizer;
+        let recommendations = CostOptimizer::analyze(&agent_file, &traces, 0.02);
+        if recommendations.is_empty() {
+            println!("\nCost Optimizer: No cheaper model alternatives found.");
+        } else {
+            println!("\nCost Optimizer Recommendations:");
+            for rec in &recommendations {
+                println!(
+                    "  {} → {} | Est. savings: ${:.4} | Current score: {:.3}",
+                    rec.current_model,
+                    rec.recommended_model,
+                    rec.estimated_savings_usd,
+                    rec.current_aggregate_score
+                );
+            }
+        }
+    }
 
     // Persist to DB if available
     if let Some(ref db) = db_opt {
@@ -545,4 +638,174 @@ async fn require_db() -> Result<agentforge_db::PgPool> {
     create_pool(&url)
         .await
         .context("Failed to connect to database")
+}
+
+/// v2: Shadow run — compare champion vs. candidate on live traffic.
+async fn cmd_shadow(
+    champion_id: Uuid,
+    candidate_id: Uuid,
+    traffic_percent: u8,
+) -> Result<i32> {
+    let db = require_db().await?;
+    let shadow_repo = ShadowRepo::new(db.clone());
+    let agent_repo = AgentRepo::new(db);
+
+    let champion = agent_repo
+        .find_by_id(champion_id)
+        .await
+        .map_err(|_| anyhow::anyhow!("Champion agent {champion_id} not found"))?;
+    let candidate = agent_repo
+        .find_by_id(candidate_id)
+        .await
+        .map_err(|_| anyhow::anyhow!("Candidate agent {candidate_id} not found"))?;
+
+    println!(
+        "Shadow run: {} v{} (champion) vs {} v{} (candidate) — {}% traffic",
+        champion.name,
+        champion.version,
+        candidate.name,
+        candidate.version,
+        traffic_percent
+    );
+
+    let run = agentforge_core::ShadowRun {
+        id: Uuid::new_v4(),
+        champion_agent_id: champion_id,
+        candidate_agent_id: candidate_id,
+        traffic_percent: traffic_percent.clamp(1, 100),
+        status: agentforge_core::ShadowRunStatus::Pending,
+        comparison: None,
+        error_message: None,
+        created_at: chrono::Utc::now(),
+        started_at: None,
+        completed_at: None,
+    };
+
+    let saved = shadow_repo.insert(&run).await?;
+    println!("Shadow run created: {} (status: pending)", saved.id);
+    println!("Use `GET /shadow-runs/{}` to check progress.", saved.id);
+    Ok(0)
+}
+
+/// v2: Export traces as fine-tuning dataset.
+async fn cmd_export(run_id: Uuid, format_str: String, output: Option<PathBuf>) -> Result<i32> {
+    use agentforge_core::ExportFormat;
+    use agentforge_finetune::FineTuneExporter;
+
+    let db = require_db().await?;
+    let trace_repo = TraceRepo::new(db.clone());
+    let finetune_repo = FineTuneRepo::new(db);
+
+    let format: ExportFormat = format_str
+        .parse()
+        .map_err(|e: String| anyhow::anyhow!(e))?;
+
+    println!("Loading traces for run {}...", run_id);
+    let traces = trace_repo
+        .list_by_run(run_id)
+        .await
+        .with_context(|| "Failed to load traces")?;
+
+    let records = FineTuneExporter::export(&traces, &format)
+        .map_err(|e| anyhow::anyhow!("Export failed: {e}"))?;
+
+    let jsonl = FineTuneExporter::to_jsonl(&records)
+        .map_err(|e| anyhow::anyhow!("Serialization failed: {e}"))?;
+
+    match output {
+        Some(path) => {
+            std::fs::write(&path, &jsonl)
+                .with_context(|| format!("Failed to write to {}", path.display()))?;
+            println!(
+                "Exported {} records ({} format) → {}",
+                records.len(),
+                format,
+                path.display()
+            );
+
+            // Update DB record if it exists
+            let export_record = agentforge_core::FineTuneExport {
+                id: Uuid::new_v4(),
+                run_id,
+                format: format.clone(),
+                status: agentforge_core::ExportStatus::Complete,
+                row_count: Some(records.len() as u32),
+                file_path: Some(path.to_string_lossy().to_string()),
+                error_message: None,
+                created_at: chrono::Utc::now(),
+                completed_at: Some(chrono::Utc::now()),
+            };
+            let _ = finetune_repo.insert(&export_record).await;
+        }
+        None => {
+            println!("{jsonl}");
+        }
+    }
+
+    Ok(0)
+}
+
+/// v2: Benchmark — run agent against a benchmark suite.
+async fn cmd_benchmark(agent_path: PathBuf, suite_str: String, tasks_path: PathBuf) -> Result<i32> {
+    use agentforge_benchmarks::{agentbench, gaia, webarena, BenchmarkRunner, BenchmarkRunnerConfig};
+    use agentforge_core::BenchmarkSuite;
+
+    let content = std::fs::read_to_string(&agent_path)
+        .with_context(|| format!("Failed to read agent file: {}", agent_path.display()))?;
+    let parsed = parse_agent_file(&content).with_context(|| "Failed to parse agent file")?;
+    let agent_file = parsed.agent.clone();
+
+    let tasks_content = std::fs::read_to_string(&tasks_path)
+        .with_context(|| format!("Failed to read tasks file: {}", tasks_path.display()))?;
+
+    let suite = match suite_str.to_lowercase().as_str() {
+        "gaia" => BenchmarkSuite::Gaia,
+        "agentbench" => BenchmarkSuite::AgentBench,
+        "webarena" => BenchmarkSuite::WebArena,
+        other => anyhow::bail!("Unknown benchmark suite: {other}"),
+    };
+
+    let tasks = match &suite {
+        BenchmarkSuite::Gaia => gaia::load_from_jsonl(&tasks_content),
+        BenchmarkSuite::AgentBench => agentbench::load_from_jsonl(&tasks_content),
+        BenchmarkSuite::WebArena => webarena::load_from_jsonl(&tasks_content),
+    };
+
+    println!(
+        "Benchmark: {} suite — {} tasks loaded from {}",
+        suite,
+        tasks.len(),
+        tasks_path.display()
+    );
+
+    let llm = build_llm_client()?;
+    let agent_id = Uuid::new_v5(&Uuid::NAMESPACE_DNS, agent_file.name.as_bytes());
+
+    let runner = BenchmarkRunner::new(
+        llm,
+        BenchmarkRunnerConfig {
+            suite: suite.clone(),
+            agent_id,
+            runner_config: RunnerConfig::default(),
+        },
+    );
+
+    println!("Running agent on {} tasks...", tasks.len());
+    let run = runner
+        .run(&agent_file, tasks)
+        .await
+        .with_context(|| "Benchmark run failed")?;
+
+    println!("\n╔══════════════════════════════════════╗");
+    println!("║        Benchmark Results              ║");
+    println!("╠══════════════════════════════════════╣");
+    println!("║  Suite:    {}", run.suite);
+    println!("║  Tasks:    {}/{} correct", run.correct, run.total_tasks);
+    println!("║  Accuracy: {:.1}%", run.accuracy * 100.0);
+    if let Some(pct) = run.percentile_rank {
+        println!("║  Percentile: {:.0}th vs. published baselines", pct);
+    }
+    println!("╚══════════════════════════════════════╝");
+
+    Ok(0)
 }

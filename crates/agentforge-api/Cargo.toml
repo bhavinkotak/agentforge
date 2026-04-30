@@ -9,14 +9,19 @@ name = "agentforge-api"
 path = "src/main.rs"
 
 [dependencies]
-agentforge-core = { path = "../agentforge-core" }
-agentforge-db = { path = "../agentforge-db" }
-agentforge-parser = { path = "../agentforge-parser" }
-agentforge-scenarios = { path = "../agentforge-scenarios" }
-agentforge-runner = { path = "../agentforge-runner" }
-agentforge-scorer = { path = "../agentforge-scorer" }
-agentforge-optimizer = { path = "../agentforge-optimizer" }
-agentforge-gatekeeper = { path = "../agentforge-gatekeeper" }
+agentforge-core         = { path = "../agentforge-core" }
+agentforge-db           = { path = "../agentforge-db" }
+agentforge-parser       = { path = "../agentforge-parser" }
+agentforge-scenarios    = { path = "../agentforge-scenarios" }
+agentforge-runner       = { path = "../agentforge-runner" }
+agentforge-scorer       = { path = "../agentforge-scorer" }
+agentforge-optimizer    = { path = "../agentforge-optimizer" }
+agentforge-gatekeeper   = { path = "../agentforge-gatekeeper" }
+agentforge-online-eval  = { path = "../agentforge-online-eval" }
+agentforge-finetune     = { path = "../agentforge-finetune" }
+agentforge-benchmarks   = { path = "../agentforge-benchmarks" }
+agentforge-redteam      = { path = "../agentforge-redteam" }
+agentforge-observability = { path = "../agentforge-observability" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

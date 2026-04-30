@@ -1,0 +1,23 @@
+[package]
+name = "agentforge-online-eval"
+description = "Online shadow evaluation: routes live traffic to champion and candidate simultaneously and compares results (v2 F-01)"
+version = "0.1.2"
+edition.workspace = true
+
+[dependencies]
+agentforge-core   = { path = "../agentforge-core" }
+agentforge-runner = { path = "../agentforge-runner" }
+agentforge-scorer = { path = "../agentforge-scorer" }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+uuid       = { workspace = true }
+chrono     = { workspace = true }
+thiserror  = { workspace = true }
+tracing    = { workspace = true }
+tokio      = { workspace = true }
+futures    = { workspace = true }
+rand       = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tokio-test        = { workspace = true }

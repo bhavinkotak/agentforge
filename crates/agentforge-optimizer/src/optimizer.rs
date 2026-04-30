@@ -45,6 +45,7 @@ pub enum MutationType {
     OutputSchemaTighten,
     FewShotInjection,
     InstructionReorder,
+    ModelDowngrade,
 }
 
 impl std::fmt::Display for MutationType {
@@ -55,6 +56,7 @@ impl std::fmt::Display for MutationType {
             MutationType::OutputSchemaTighten => write!(f, "output_schema_tighten"),
             MutationType::FewShotInjection => write!(f, "few_shot_injection"),
             MutationType::InstructionReorder => write!(f, "instruction_reorder"),
+            MutationType::ModelDowngrade => write!(f, "model_downgrade"),
         }
     }
 }

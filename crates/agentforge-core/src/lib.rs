@@ -1,13 +1,25 @@
 pub mod agent;
+pub mod benchmark;
+pub mod cost;
 pub mod error;
 pub mod eval;
+pub mod finetune;
+pub mod multiagent;
+pub mod redteam;
 pub mod scenario;
 pub mod score;
+pub mod shadow;
 pub mod trace;
 
 pub use agent::*;
+pub use benchmark::*;
+pub use cost::*;
 pub use error::*;
 pub use eval::*;
+pub use finetune::*;
+pub use multiagent::*;
+pub use redteam::*;
 pub use scenario::*;
 pub use score::*;
+pub use shadow::*;
 pub use trace::*;

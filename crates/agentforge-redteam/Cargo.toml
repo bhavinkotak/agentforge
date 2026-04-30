@@ -1,0 +1,23 @@
+[package]
+name = "agentforge-redteam"
+description = "Red-teaming mode: adversarial safety probing with jailbreak, prompt injection, data leakage, and constraint bypass scenarios (v2 F-04)"
+version = "0.1.2"
+edition.workspace = true
+
+[dependencies]
+agentforge-core      = { path = "../agentforge-core" }
+agentforge-runner    = { path = "../agentforge-runner" }
+agentforge-scenarios = { path = "../agentforge-scenarios" }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+uuid       = { workspace = true }
+chrono     = { workspace = true }
+thiserror  = { workspace = true }
+tracing    = { workspace = true }
+tokio      = { workspace = true }
+reqwest    = { workspace = true }
+rand       = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tokio-test        = { workspace = true }

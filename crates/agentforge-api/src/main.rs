@@ -3,6 +3,7 @@ use std::sync::Arc;
 use agentforge_api::{router, AppState};
 use agentforge_db::create_pool;
 use agentforge_gatekeeper::GatekeeperConfig;
+use agentforge_observability::build_exporter;
 use agentforge_runner::{AnthropicClient, LlmClient, OpenAiClient};
 use agentforge_scorer::ScorerConfig;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -47,12 +48,15 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let gatekeeper_config = GatekeeperConfig::default();
+    let trace_exporter: Arc<dyn agentforge_observability::TraceExporter> =
+        Arc::from(build_exporter());
 
     let state = Arc::new(AppState {
         db,
         llm_client,
         scorer_config,
         gatekeeper_config,
+        trace_exporter,
     });
 
     let host = std::env::var("AGENTFORGE_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());

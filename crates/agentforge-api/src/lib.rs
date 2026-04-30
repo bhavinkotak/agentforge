@@ -23,5 +23,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         // Diff and promote
         .route("/diff", get(routes::diff::get_diff))
         .route("/promote/:run_id", post(routes::promote::promote_run))
+        // v2: Shadow / online eval
+        .route("/shadow-runs", post(routes::shadow::start_shadow_run))
+        .route("/shadow-runs/:id", get(routes::shadow::get_shadow_run))
+        // v2: Fine-tune export
+        .route("/exports/finetune", post(routes::finetune::start_export))
+        .route("/exports/finetune/:id", get(routes::finetune::get_export))
+        // v2: Benchmark comparison
+        .route("/benchmarks", post(routes::benchmarks::start_benchmark))
+        .route("/benchmarks/:id", get(routes::benchmarks::get_benchmark))
         .with_state(state)
 }

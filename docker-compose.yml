@@ -52,6 +52,17 @@ services:
     env_file:
       - .env
 
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: agentforge-web
+    depends_on:
+      - agentforge-api
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

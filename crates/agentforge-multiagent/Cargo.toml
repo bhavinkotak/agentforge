@@ -1,0 +1,21 @@
+[package]
+name = "agentforge-multiagent"
+description = "Multi-agent graph testing: runs agent teams (CrewAI-style, LangGraph-style) as composed units with per-node scoring (v2 F-03)"
+version = "0.1.2"
+edition.workspace = true
+
+[dependencies]
+agentforge-core   = { path = "../agentforge-core" }
+agentforge-runner = { path = "../agentforge-runner" }
+agentforge-scorer = { path = "../agentforge-scorer" }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+uuid       = { workspace = true }
+chrono     = { workspace = true }
+thiserror  = { workspace = true }
+tracing    = { workspace = true }
+tokio      = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tokio-test        = { workspace = true }
