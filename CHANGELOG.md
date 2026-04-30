@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/bhavinkotak/agentforge/compare/agentforge-v0.1.1...agentforge-v0.1.2) (2026-04-30)
+
+
+### Documentation
+
+* add CODEOWNERS, CONTRIBUTING guide, and GitHub Actions marketplace section ([05077d1](https://github.com/bhavinkotak/agentforge/commit/05077d1cef666bf53b58bdbf84f64fbd9b72a9f3))
+
 ## [0.1.1](https://github.com/bhavinkotak/agentforge/compare/agentforge-v0.1.0...agentforge-v0.1.1) (2026-04-30)
 
 
