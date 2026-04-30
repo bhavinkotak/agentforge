@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/bhavinkotak/agentforge/compare/agentforge-v0.1.2...agentforge-v0.1.3) (2026-04-30)
+
+
+### Bug Fixes
+
+* shorten action.yml description to meet GitHub Marketplace 125-char limit ([e0b5661](https://github.com/bhavinkotak/agentforge/commit/e0b566111f242dfcd25d143e53baf5623dcf1aad))
+
 ## [0.1.2](https://github.com/bhavinkotak/agentforge/compare/agentforge-v0.1.1...agentforge-v0.1.2) (2026-04-30)
 
 
