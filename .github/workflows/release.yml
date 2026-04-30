@@ -54,7 +54,7 @@ jobs:
       SQLX_OFFLINE: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust (${{ matrix.target }})
         uses: dtolnay/rust-toolchain@stable
@@ -112,7 +112,7 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
