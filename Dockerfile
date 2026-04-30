@@ -13,7 +13,7 @@ COPY .sqlx/ .sqlx/
 RUN SQLX_OFFLINE=true cargo build --release --package agentforge-api --package agentforge-cli
 
 # ─── API server runtime ────────────────────────────────────────────────────────
-FROM alpine:3.21 AS api
+FROM alpine:3.23 AS api
 
 RUN apk add --no-cache ca-certificates
 
@@ -24,7 +24,7 @@ EXPOSE 8080
 CMD ["./agentforge-api"]
 
 # ─── CLI runtime (used by GitHub Action and direct usage) ─────────────────────
-FROM alpine:3.21 AS cli
+FROM alpine:3.23 AS cli
 
 RUN apk add --no-cache ca-certificates
 
