@@ -69,6 +69,12 @@ fn parse_to_value(content: &str, format: &AgentFileFormat) -> Result<serde_json:
             };
             serde_yaml::from_str(&yaml_content).map_err(|e| AgentForgeError::ParseError(e.to_string()))
         }
+        AgentFileFormat::CopilotAgentMd => {
+            // Parse only the YAML frontmatter as the value;
+            // the Markdown body is extracted later in normalize() via the raw content.
+            let frontmatter = extract_frontmatter(trimmed)?;
+            serde_yaml::from_str(&frontmatter).map_err(|e| AgentForgeError::ParseError(e.to_string()))
+        }
     }
 }
 

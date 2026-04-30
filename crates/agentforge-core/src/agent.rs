@@ -103,6 +103,8 @@ pub enum AgentFileFormat {
     AnthropicJson,
     LangchainYaml,
     CrewaiYaml,
+    /// GitHub Copilot `.agent.md` format — YAML frontmatter + Markdown system prompt body.
+    CopilotAgentMd,
 }
 
 impl std::fmt::Display for AgentFileFormat {
@@ -113,6 +115,7 @@ impl std::fmt::Display for AgentFileFormat {
             AgentFileFormat::AnthropicJson => write!(f, "anthropic_json"),
             AgentFileFormat::LangchainYaml => write!(f, "langchain_yaml"),
             AgentFileFormat::CrewaiYaml => write!(f, "crewai_yaml"),
+            AgentFileFormat::CopilotAgentMd => write!(f, "copilot_agent_md"),
         }
     }
 }
@@ -127,6 +130,7 @@ impl std::str::FromStr for AgentFileFormat {
             "anthropic_json" => Ok(AgentFileFormat::AnthropicJson),
             "langchain_yaml" => Ok(AgentFileFormat::LangchainYaml),
             "crewai_yaml" => Ok(AgentFileFormat::CrewaiYaml),
+            "copilot_agent_md" => Ok(AgentFileFormat::CopilotAgentMd),
             _ => Err(crate::AgentForgeError::InvalidFormat(s.to_string())),
         }
     }

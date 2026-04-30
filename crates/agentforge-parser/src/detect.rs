@@ -1,7 +1,7 @@
 use agentforge_core::{AgentFileFormat, AgentForgeError, Result};
 
 /// Detect the format of an agent file from its raw content.
-/// Detection order: JSON → YAML field sniffing → Markdown frontmatter
+/// Detection order: JSON → Copilot .agent.md frontmatter → YAML field sniffing
 pub fn detect_format(content: &str) -> Result<AgentFileFormat> {
     let trimmed = content.trim();
 
@@ -18,6 +18,17 @@ pub fn detect_format(content: &str) -> Result<AgentFileFormat> {
         let yaml_body = extract_frontmatter(trimmed)?;
         let value: serde_json::Value = serde_yaml::from_str(&yaml_body)
             .map_err(|e| AgentForgeError::ParseError(format!("Invalid frontmatter YAML: {e}")))?;
+
+        // Copilot .agent.md: has `name` in frontmatter but NOT `agentforge_schema_version`,
+        // and the body after the closing `---` contains non-trivial Markdown content.
+        let has_name = value.get("name").is_some();
+        let is_native = value.get("agentforge_schema_version").is_some();
+        let has_markdown_body = has_markdown_body_after_frontmatter(trimmed);
+
+        if has_name && !is_native && has_markdown_body {
+            return Ok(AgentFileFormat::CopilotAgentMd);
+        }
+
         return Ok(classify_yaml_format(&value));
     }
 
@@ -29,6 +40,17 @@ pub fn detect_format(content: &str) -> Result<AgentFileFormat> {
     Err(AgentForgeError::InvalidFormat(
         "Cannot detect format: not valid JSON, YAML, or Markdown frontmatter".to_string(),
     ))
+}
+
+/// Return true when the content after the closing `---` contains non-trivial Markdown.
+fn has_markdown_body_after_frontmatter(content: &str) -> bool {
+    let mut parts = content.splitn(3, "---");
+    parts.next(); // empty prefix
+    parts.next(); // frontmatter
+    match parts.next() {
+        Some(body) => !body.trim().is_empty(),
+        None => false,
+    }
 }
 
 fn classify_json_format(v: &serde_json::Value) -> AgentFileFormat {
@@ -136,6 +158,30 @@ version: "1.0.0"
 ---
 # Documentation
 "#;
+        assert_eq!(detect_format(content).unwrap(), AgentFileFormat::NativeYaml);
+    }
+
+    #[test]
+    fn detects_copilot_agent_md() {
+        let content = r#"---
+name: 'GitHub Actions Expert'
+description: 'CI/CD workflow specialist'
+model: GPT-4.1
+tools: ['github/*', 'read']
+---
+
+# GitHub Actions Expert
+
+You are a GitHub Actions specialist.
+"#;
+        assert_eq!(detect_format(content).unwrap(), AgentFileFormat::CopilotAgentMd);
+    }
+
+    #[test]
+    fn copilot_md_without_body_falls_through_to_yaml() {
+        // No Markdown body — treated as plain YAML (NativeYaml default)
+        let content = "---\nname: 'Just Frontmatter'\n---\n";
+        // Empty body so NOT CopilotAgentMd — falls through to NativeYaml
         assert_eq!(detect_format(content).unwrap(), AgentFileFormat::NativeYaml);
     }
 

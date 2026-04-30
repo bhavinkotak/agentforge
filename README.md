@@ -38,7 +38,7 @@ Humans set the quality bar. The platform handles the repetitive evaluation and i
 
 | Feature | Description |
 |---------|-------------|
-| **F-01 Agent Loader** | Parses YAML/JSON/Markdown agent files, validates against schema, SHA-based version store |
+| **F-01 Agent Loader** | Parses YAML/JSON/Markdown/Copilot `.agent.md` agent files, validates against schema, SHA-based version store |
 | **F-02 Scenario Generator** | Generates N test scenarios via schema-derived, adversarial, and domain-seeded strategies |
 | **F-03 Agent Runner** | Parallel execution with full trace capture, retry logic, and token usage tracking |
 | **F-04 Trace Scorer** | Six-dimension weighted scoring via deterministic assertions + LLM-as-judge |
@@ -200,12 +200,50 @@ DATABASE_URL=$DATABASE_URL ./target/release/agentforge-api
 
 AgentForge accepts agent files in the following formats:
 - **AgentForge native YAML** (recommended)
+- **GitHub Copilot `.agent.md`** — YAML frontmatter + Markdown system prompt body
 - OpenAI Assistants API JSON
 - Anthropic Claude system prompt + tool block JSON
 - LangChain / LangGraph agent YAML
 - CrewAI agent definition YAML
 
-### Native YAML Schema
+### GitHub Copilot `.agent.md` Format
+
+Compatible with agents from [github/awesome-copilot](https://github.com/github/awesome-copilot/tree/main/agents). The frontmatter holds metadata; the Markdown body becomes the system prompt.
+
+```markdown
+---
+name: 'Code Review Expert'
+description: 'Specialist in reviewing code for security and maintainability'
+model: GPT-4.1
+tools: ['read', 'search/codebase', 'github/*']
+---
+
+# Code Review Expert
+
+You are an expert code reviewer specializing in security, performance,
+and maintainability.
+
+## Review Focus Areas
+
+- **Security**: Check for injection vulnerabilities and data exposure
+- **Performance**: Identify N+1 queries and unnecessary allocations
+- **Maintainability**: Evaluate clarity and SOLID principles
+```
+
+**Frontmatter fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Agent display name |
+| `description` | string | Short description (stored in metadata) |
+| `model` | string | LLM model ID — infers provider from name (e.g. `GPT-4.1` → OpenAI, `claude-*` → Anthropic) |
+| `tools` | string[] | Capability references like `"github/*"`, `"read"`, `"context7/*"` |
+| `argument-hint` | string | Hint for the argument the agent expects (stored in metadata) |
+| `mcp-servers` | object | MCP server configurations (stored in metadata) |
+
+Copilot tool capability references are mapped to `ToolDefinition` entries so AgentForge can reason about them during scenario generation and scoring.
+
+### AgentForge Native YAML Schema
 
 ```yaml
 # agent.yaml — AgentForge native schema v1
