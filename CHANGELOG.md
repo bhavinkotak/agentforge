@@ -1,0 +1,19 @@
+# Changelog
+
+## [0.1.1](https://github.com/bhavinkotak/agentforge/compare/agentforge-v0.1.0...agentforge-v0.1.1) (2026-04-30)
+
+
+### Features
+
+* add GitHub Copilot .agent.md format support ([0a595bf](https://github.com/bhavinkotak/agentforge/commit/0a595bf01a96b236262758c14b6218ca9c3f5354))
+* initial implementation of AgentForge ([f2af419](https://github.com/bhavinkotak/agentforge/commit/f2af419920628e69fb6ec9dc5c45b020310d1d62))
+
+
+### Bug Fixes
+
+* add explicit toolchain input to dtolnay/rust-toolchain SHA-pinned calls ([5782635](https://github.com/bhavinkotak/agentforge/commit/5782635371df6a3c57a530dd0bcaf2804a79c24b))
+* enable release-please to version workspace correctly ([a73e45b](https://github.com/bhavinkotak/agentforge/commit/a73e45b1efef4e336caf35b5750072da70ecd65c))
+* pin all Actions to SHA, add missing agentforge-api crate, fix cargo audit ([d4960c2](https://github.com/bhavinkotak/agentforge/commit/d4960c23dc172af3d7b0d54622e54cee43d45858))
+* pin all Actions to SHA, add missing crate, fix cargo audit ([8afe4a2](https://github.com/bhavinkotak/agentforge/commit/8afe4a23d5132f299252bee952b0faee315d1830))
+* resolve all clippy -D warnings and rustfmt issues ([2db1fe2](https://github.com/bhavinkotak/agentforge/commit/2db1fe24bbefae0014926185401554c65230bed3))
+* use explicit version = "0.1.0" in all workspace member crates ([438f267](https://github.com/bhavinkotak/agentforge/commit/438f2674d83c01f8f9bd150ce9b24ec741c798f9))
