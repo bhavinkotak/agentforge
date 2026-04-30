@@ -1,3 +1,13 @@
+[package]
+name = "agentforge"
+version = "0.1.0"
+edition = "2021"
+authors = ["AgentForge Team"]
+license = "MIT"
+repository = "https://github.com/bhavinkotak/agentforge"
+description = "AI agent evaluation platform"
+publish = false
+
 [workspace]
 members = [
     "crates/agentforge-core",

@@ -4,12 +4,18 @@
   "packages": {
     ".": {
       "release-type": "rust",
-      "component": "agentforge",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "draft": false,
       "prerelease": false,
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.workspace.package.version"
+        }
+      ],
       "changelog-sections": [
         { "type": "feat", "section": "Features" },
         { "type": "fix", "section": "Bug Fixes" },
@@ -23,9 +29,5 @@
         { "type": "ci", "section": "Continuous Integration", "hidden": true }
       ]
     }
-  },
-  "pull-request-title-pattern": "chore: release${component} ${version}",
-  "pull-request-header": ":robot: I have created a release *beep* *boop*",
-  "separate-pull-requests": false,
-  "group-pull-request-title-pattern": "chore: release ${version}"
+  }
 }
