@@ -1,0 +1,130 @@
+name: 'AgentForge Eval'
+description: 'Run an AI agent evaluation cycle: generate scenarios, execute traces, score results, and gate promotion. One agent file in — a better agent out.'
+author: 'AgentForge'
+
+branding:
+  icon: 'activity'
+  color: 'purple'
+
+inputs:
+  agent_file:
+    description: 'Path to the agent file (YAML, JSON, or .agent.md)'
+    required: true
+  scenarios:
+    description: 'Number of test scenarios to generate'
+    required: false
+    default: '100'
+  concurrency:
+    description: 'Number of parallel workers for running scenarios'
+    required: false
+    default: '10'
+  seed:
+    description: 'Random seed for reproducible scenario generation'
+    required: false
+    default: '42'
+  threshold:
+    description: 'Minimum aggregate pass score to gate promotion (0.0–1.0)'
+    required: false
+    default: '0.85'
+  provider:
+    description: 'LLM provider for the agent under test: openai | anthropic'
+    required: false
+    default: 'openai'
+  judge_provider:
+    description: 'LLM provider for the judge (must differ from agent provider)'
+    required: false
+    default: 'anthropic'
+
+outputs:
+  pass_rate:
+    description: 'Aggregate pass rate across all evaluated scenarios (0.0–1.0)'
+    value: ${{ steps.run-eval.outputs.pass_rate }}
+  aggregate_score:
+    description: 'Weighted aggregate score across all six dimensions (0.0–1.0)'
+    value: ${{ steps.run-eval.outputs.aggregate_score }}
+  promoted:
+    description: 'Whether the agent was promoted to champion ("true" | "false")'
+    value: ${{ steps.run-eval.outputs.promoted }}
+  scorecard_path:
+    description: 'Path to the JSON scorecard artifact'
+    value: ${{ steps.run-eval.outputs.scorecard_path }}
+  run_id:
+    description: 'AgentForge eval run UUID'
+    value: ${{ steps.run-eval.outputs.run_id }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up AgentForge CLI
+      id: setup
+      shell: bash
+      run: |
+        # Download pre-built binary from the release matching this action's ref
+        REPO="bhavinkotak/agentforge"
+        VERSION="${{ github.action_ref }}"
+        # Strip leading 'v' if present for asset names
+        VERSION_NUM="${VERSION#v}"
+        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        ARCH="$(uname -m)"
+        # Normalise arch
+        case "$ARCH" in
+          x86_64) ARCH="x86_64" ;;
+          aarch64|arm64) ARCH="aarch64" ;;
+        esac
+
+        ASSET="agentforge-${OS}-${ARCH}.tar.gz"
+        DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
+
+        echo "Downloading AgentForge ${VERSION} from ${DOWNLOAD_URL}"
+        curl -fsSL "$DOWNLOAD_URL" -o /tmp/agentforge.tar.gz
+        tar -xzf /tmp/agentforge.tar.gz -C /tmp
+        chmod +x /tmp/agentforge
+        echo "/tmp" >> "$GITHUB_PATH"
+
+    - name: Run AgentForge evaluation
+      id: run-eval
+      shell: bash
+      env:
+        OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
+        DATABASE_URL: ${{ env.DATABASE_URL }}
+      run: |
+        set +e
+        agentforge run \
+          --agent "${{ inputs.agent_file }}" \
+          --scenarios "${{ inputs.scenarios }}" \
+          --concurrency "${{ inputs.concurrency }}" \
+          --seed "${{ inputs.seed }}" \
+          --provider "${{ inputs.provider }}" \
+          --judge-provider "${{ inputs.judge_provider }}" \
+          --threshold "${{ inputs.threshold }}" \
+          --output-json /tmp/agentforge-scorecard.json
+        EXIT_CODE=$?
+        set -e
+
+        # Parse scorecard outputs
+        if [ -f /tmp/agentforge-scorecard.json ]; then
+          PASS_RATE=$(jq -r '.pass_rate // "0"' /tmp/agentforge-scorecard.json)
+          AGG_SCORE=$(jq -r '.aggregate_score // "0"' /tmp/agentforge-scorecard.json)
+          PROMOTED=$(jq -r '.promoted // "false"' /tmp/agentforge-scorecard.json)
+          RUN_ID=$(jq -r '.run_id // ""' /tmp/agentforge-scorecard.json)
+          echo "pass_rate=${PASS_RATE}" >> "$GITHUB_OUTPUT"
+          echo "aggregate_score=${AGG_SCORE}" >> "$GITHUB_OUTPUT"
+          echo "promoted=${PROMOTED}" >> "$GITHUB_OUTPUT"
+          echo "scorecard_path=/tmp/agentforge-scorecard.json" >> "$GITHUB_OUTPUT"
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+        fi
+
+        # Propagate exit code: 0=passed/promoted, 1=gatekeeper blocked, 2=error
+        exit $EXIT_CODE
+
+    - name: Upload scorecard artifact
+      if: always()
+      shell: bash
+      run: |
+        if [ -f /tmp/agentforge-scorecard.json ]; then
+          mkdir -p "${{ github.workspace }}/.agentforge"
+          cp /tmp/agentforge-scorecard.json "${{ github.workspace }}/.agentforge/scorecard.json"
+          echo "Scorecard saved to .agentforge/scorecard.json"
+          cat /tmp/agentforge-scorecard.json
+        fi

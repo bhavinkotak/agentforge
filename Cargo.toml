@@ -18,7 +18,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["AgentForge Team"]
 license = "MIT"
-repository = "https://github.com/agentforge/agentforge"
+repository = "https://github.com/bhavinkotak/agentforge"
 
 [workspace.dependencies]
 # Async runtime

@@ -1,0 +1,40 @@
+name: Action Self-Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'action.yml'
+      - '.github/workflows/action-test.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'action.yml'
+      - '.github/workflows/action-test.yml'
+
+jobs:
+  test-action:
+    name: Test action.yml interface
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate action.yml structure
+        run: |
+          # Verify required top-level fields are present
+          python3 -c "
+          import yaml, sys
+          with open('action.yml') as f:
+              a = yaml.safe_load(f)
+          assert 'name' in a, 'action.yml missing name'
+          assert 'description' in a, 'action.yml missing description'
+          assert 'inputs' in a, 'action.yml missing inputs'
+          assert 'outputs' in a, 'action.yml missing outputs'
+          assert 'runs' in a, 'action.yml missing runs'
+          required_inputs = ['agent_file']
+          for inp in required_inputs:
+              assert inp in a['inputs'], f'Missing required input: {inp}'
+          print('action.yml structure OK')
+          print(f'  Inputs:  {list(a[\"inputs\"].keys())}')
+          print(f'  Outputs: {list(a[\"outputs\"].keys())}')
+          "
