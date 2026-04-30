@@ -4,11 +4,11 @@ version = 4
 
 [[package]]
 name = "agentforge"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "agentforge-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agentforge-core",
  "agentforge-db",
@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "agentforge-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agentforge-core",
  "agentforge-db",
@@ -68,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "agentforge-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "serde",
@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "agentforge-db"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agentforge-core",
  "anyhow",
@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "agentforge-gatekeeper"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agentforge-core",
  "agentforge-db",
@@ -117,7 +117,7 @@ dependencies = [
 
 [[package]]
 name = "agentforge-optimizer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agentforge-core",
  "agentforge-scorer",
@@ -140,7 +140,7 @@ dependencies = [
 
 [[package]]
 name = "agentforge-parser"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agentforge-core",
  "chrono",
@@ -160,7 +160,7 @@ dependencies = [
 
 [[package]]
 name = "agentforge-runner"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agentforge-core",
  "async-trait",
@@ -181,7 +181,7 @@ dependencies = [
 
 [[package]]
 name = "agentforge-scenarios"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agentforge-core",
  "async-trait",
@@ -202,7 +202,7 @@ dependencies = [
 
 [[package]]
 name = "agentforge-scorer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agentforge-core",
  "agentforge-runner",
