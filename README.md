@@ -19,7 +19,9 @@ AgentForge is a self-improving AI agent optimization platform written in Rust. F
 - [Promotion Gatekeeper](#promotion-gatekeeper)
 - [Configuration](#configuration)
 - [Running Tests](#running-tests)
+- [GitHub Actions Marketplace](#github-actions-marketplace)
 - [CI/CD Integration](#cicd-integration)
+- [Contributing](#contributing)
 - [Roadmap](#roadmap)
 
 ---
@@ -469,9 +471,132 @@ The test suite covers:
 
 ---
 
+## GitHub Actions Marketplace
+
+[![GitHub Marketplace](https://img.shields.io/badge/GitHub%20Actions-Marketplace-blue?logo=github)](https://github.com/marketplace/actions/agentforge-eval)
+
+AgentForge is published as a reusable GitHub Action. No Rust toolchain, database, or build step required in your workflow — the action downloads a pre-built binary from the latest release automatically.
+
+```yaml
+- uses: bhavinkotak/agentforge@v1
+  with:
+    agent_file: './agents/my-agent.yaml'
+  env:
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    DATABASE_URL: ${{ secrets.AGENTFORGE_DATABASE_URL }}
+```
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `agent_file` | **yes** | — | Path to the agent file (YAML, JSON, or `.agent.md`) |
+| `scenarios` | no | `100` | Number of test scenarios to generate |
+| `concurrency` | no | `10` | Parallel workers for running scenarios |
+| `seed` | no | `42` | Random seed for reproducible scenario generation |
+| `threshold` | no | `0.85` | Minimum aggregate score to gate promotion (0.0–1.0) |
+| `provider` | no | `openai` | LLM provider for the agent under test: `openai` \| `anthropic` |
+| `judge_provider` | no | `anthropic` | Judge LLM provider (must differ from `provider`) |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `pass_rate` | Aggregate pass rate across all evaluated scenarios (0.0–1.0) |
+| `aggregate_score` | Weighted aggregate score across all six dimensions (0.0–1.0) |
+| `promoted` | Whether the agent was promoted to champion (`"true"` \| `"false"`) |
+| `scorecard_path` | Path to the JSON scorecard artifact |
+| `run_id` | AgentForge eval run UUID |
+
+### Use Cases
+
+#### Block a merge when agent quality drops
+
+Run a full eval cycle on every PR that touches agent files. Fail the check if the score falls below threshold — preventing regressions from being merged.
+
+```yaml
+name: Agent Quality Gate
+on:
+  pull_request:
+    paths: ['agents/**', '*.agent.md']
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bhavinkotak/agentforge@v1
+        id: eval
+        with:
+          agent_file: './agents/customer-support-agent.yaml'
+          scenarios: '200'
+          threshold: '0.85'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DATABASE_URL: ${{ secrets.AGENTFORGE_DATABASE_URL }}
+      - name: Report scorecard
+        if: always()
+        run: |
+          echo "Pass rate: ${{ steps.eval.outputs.pass_rate }}"
+          echo "Aggregate score: ${{ steps.eval.outputs.aggregate_score }}"
+          echo "Promoted: ${{ steps.eval.outputs.promoted }}"
+```
+
+#### Nightly improvement loop
+
+Run AgentForge on a schedule to continuously generate, evaluate, and auto-promote improved agent variants.
+
+```yaml
+name: Nightly Agent Improvement
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 02:00 UTC every night
+
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bhavinkotak/agentforge@v1
+        with:
+          agent_file: './agents/customer-support-agent.yaml'
+          scenarios: '500'
+          concurrency: '20'
+          threshold: '0.88'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DATABASE_URL: ${{ secrets.AGENTFORGE_DATABASE_URL }}
+```
+
+#### Evaluate a GitHub Copilot `.agent.md` file
+
+AgentForge natively parses Copilot agent files — just point `agent_file` at the `.agent.md`.
+
+```yaml
+- uses: bhavinkotak/agentforge@v1
+  with:
+    agent_file: '.github/agents/code-review.agent.md'
+    scenarios: '100'
+    provider: 'openai'
+    judge_provider: 'anthropic'
+  env:
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    DATABASE_URL: ${{ secrets.AGENTFORGE_DATABASE_URL }}
+```
+
+> **Tip:** Pin to a specific version for reproducibility: `bhavinkotak/agentforge@v1.2.3`
+
+---
+
 ## CI/CD Integration
 
-### GitHub Actions
+### Self-hosted / custom CI
+
+If you prefer to build from source (e.g., air-gapped environments), use the CLI directly:
 
 ```yaml
 # .github/workflows/agent-eval.yml
@@ -521,7 +646,21 @@ jobs:
             --threshold 0.85
 ```
 
-Exit codes follow standard conventions: `0` = passed/promoted, `1` = gatekeeper blocked, `2` = error.
+Exit codes: `0` = passed/promoted, `1` = gatekeeper blocked, `2` = error.
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the full process. In short:
+
+1. **Open an issue first** for significant changes so we can discuss the approach.
+2. **Fork and branch** — create a feature branch from `main`.
+3. **Follow code conventions** — `cargo fmt` and `cargo clippy --all-targets` must pass.
+4. **Add tests** — all new behaviour must be covered.
+5. **Open a PR** — all PRs require approval from the project maintainer ([@bhavinkotak](https://github.com/bhavinkotak)) before merging.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dev environment setup, commit message conventions, and the full review checklist.
 
 ---
 
