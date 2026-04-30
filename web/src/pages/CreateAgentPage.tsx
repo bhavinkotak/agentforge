@@ -26,6 +26,24 @@ eval_hints:
   scenario_count: 50
 `
 
+/** Convert known hosting URLs to their raw plaintext equivalents before fetching. */
+function normalizeUrl(input: string): string {
+  const u = input.trim()
+  // GitHub blob page → raw content
+  // https://github.com/{owner}/{repo}/blob/{ref}/{...path}
+  const ghBlob = u.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/)
+  if (ghBlob) {
+    return `https://raw.githubusercontent.com/${ghBlob[1]}/${ghBlob[2]}/${ghBlob[3]}`
+  }
+  // Gist page → raw content
+  // https://gist.github.com/{user}/{id}
+  const gist = u.match(/^https?:\/\/gist\.github\.com\/([^/]+)\/([a-f0-9]+)\/?$/)
+  if (gist) {
+    return `https://gist.githubusercontent.com/${gist[1]}/${gist[2]}/raw`
+  }
+  return u
+}
+
 export function CreateAgentPage() {
   const navigate = useNavigate()
   const [mode, setMode] = useState<'paste' | 'url'>('paste')
@@ -46,15 +64,24 @@ export function CreateAgentPage() {
       setFetchError('URL must start with http:// or https://')
       return
     }
+    const resolvedUrl = normalizeUrl(url.trim())
     setFetching(true)
     try {
-      const res = await fetch(url.trim())
+      const res = await fetch(resolvedUrl)
       if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
       const text = await res.text()
       setContent(text)
       setMode('paste')
+      if (resolvedUrl !== url.trim()) {
+        setFetchError(null) // clear any prior error
+        // Brief informational note via the success message
+      }
     } catch (e) {
-      setFetchError(e instanceof Error ? e.message : 'Failed to fetch URL')
+      setFetchError(
+        e instanceof Error
+          ? `${e.message}${resolvedUrl !== url.trim() ? ` (resolved to ${resolvedUrl})` : ''}`
+          : 'Failed to fetch URL',
+      )
     } finally {
       setFetching(false)
     }
@@ -146,6 +173,13 @@ export function CreateAgentPage() {
                 Fetch
               </Button>
             </div>
+            {/* Show auto-resolved URL hint for GitHub blob links */}
+            {url && normalizeUrl(url.trim()) !== url.trim() && (
+              <p className="text-xs text-indigo-600">
+                ↳ Will fetch raw content from{' '}
+                <span className="font-mono">{normalizeUrl(url.trim())}</span>
+              </p>
+            )}
             {fetchError && (
               <p className="text-xs text-red-600">{fetchError}</p>
             )}

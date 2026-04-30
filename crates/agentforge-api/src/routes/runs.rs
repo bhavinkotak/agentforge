@@ -206,10 +206,17 @@ async fn run_evaluation_background(
             &scorecard.failure_clusters,
         )
         .await;
+
+    // Update completed/error counts now that we know the final tally
+    let completed = scorecard.total_scenarios.saturating_sub(scorecard.errors);
+    let _ = eval_repo
+        .update_progress(run_id, completed, scorecard.errors)
+        .await;
+
     let _ = eval_repo
         .update_status(run_id, &EvalRunStatus::Complete)
         .await;
-    tracing::info!(%run_id, aggregate = scorecard.aggregate_score, "Evaluation complete");
+    tracing::info!(%run_id, aggregate = scorecard.aggregate_score, passed = scorecard.passed, errors = scorecard.errors, "Evaluation complete");
 }
 
 /// GET /runs/:id
