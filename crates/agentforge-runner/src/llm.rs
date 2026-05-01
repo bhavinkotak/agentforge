@@ -490,7 +490,7 @@ impl NvidiaClient {
     pub fn from_env() -> Option<Self> {
         let api_key = std::env::var("NVIDIA_API_KEY").ok()?;
         let model = std::env::var("AGENTFORGE_NVIDIA_MODEL")
-            .unwrap_or_else(|_| "meta/llama-3.1-8b-instruct".to_string());
+            .unwrap_or_else(|_| "meta/llama-3.1-70b-instruct".to_string());
         Some(Self::new(api_key, model))
     }
 }
