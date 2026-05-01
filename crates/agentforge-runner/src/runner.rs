@@ -290,8 +290,10 @@ async fn run_single(
         }));
         step_index += 1;
 
-        // Handle tool calls
-        if let Some(tool_calls) = &response.message.tool_calls {
+        // Handle tool calls (only when the parsed list is non-empty;
+        // Some([]) is already normalised to None in the LLM parser but
+        // guard here too to avoid leaving an assistant msg as the last entry).
+        if let Some(tool_calls) = response.message.tool_calls.as_ref().filter(|v| !v.is_empty()) {
             // Add assistant message with tool calls to history
             messages.push(LlmMessage {
                 role: LlmRole::Assistant,

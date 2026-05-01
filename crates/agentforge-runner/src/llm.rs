@@ -221,26 +221,54 @@ fn parse_openai_response(raw: serde_json::Value, latency_ms: u64) -> Result<LlmR
 
     let content = msg_val["content"].as_str().map(String::from);
 
+    // Debug-log the raw tool_calls array so we can diagnose format issues.
+    if msg_val.get("tool_calls").and_then(|v| v.as_array()).is_some_and(|a| !a.is_empty()) {
+        tracing::debug!(
+            raw_tool_calls = %msg_val["tool_calls"],
+            "Raw tool_calls from API"
+        );
+    }
+
     let tool_calls: Option<Vec<ToolCall>> = msg_val
         .get("tool_calls")
         .and_then(|tc| tc.as_array())
         .map(|arr| {
-            arr.iter()
+            let parsed: Vec<ToolCall> = arr
+                .iter()
                 .filter_map(|tc| {
+                    // Robustly parse `id`: string first, then integer (some vLLM
+                    // backends like NVIDIA NIM return numeric IDs).
+                    let id = tc["id"]
+                        .as_str()
+                        .map(str::to_owned)
+                        .or_else(|| tc["id"].as_i64().map(|n| n.to_string()))
+                        .or_else(|| tc["id"].as_u64().map(|n| n.to_string()))?;
+                    let name = tc["function"]["name"].as_str()?.to_string();
+                    // `arguments` may be a JSON string or an inlined object.
+                    let arguments = match &tc["function"]["arguments"] {
+                        serde_json::Value::String(s) => s.clone(),
+                        v if !v.is_null() => v.to_string(),
+                        _ => "{}".to_string(),
+                    };
                     Some(ToolCall {
-                        id: tc["id"].as_str()?.to_string(),
+                        id,
                         tool_type: tc["type"].as_str().unwrap_or("function").to_string(),
-                        function: ToolCallFunction {
-                            name: tc["function"]["name"].as_str()?.to_string(),
-                            arguments: tc["function"]["arguments"]
-                                .as_str()
-                                .unwrap_or("{}")
-                                .to_string(),
-                        },
+                        function: ToolCallFunction { name, arguments },
                     })
                 })
-                .collect()
-        });
+                .collect();
+            if parsed.is_empty() && !arr.is_empty() {
+                tracing::warn!(
+                    raw_tool_calls = %serde_json::to_string(arr).unwrap_or_default(),
+                    "Tool calls array was non-empty but all entries failed to parse — \
+                     check the id/function.name field format"
+                );
+            }
+            parsed
+        })
+        // Treat Some([]) the same as None so we don't leave an assistant
+        // message as the final history entry without any tool results.
+        .filter(|v| !v.is_empty());
 
     let input_tokens = raw["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
     let output_tokens = raw["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
