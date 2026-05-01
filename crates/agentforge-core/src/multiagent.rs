@@ -107,11 +107,9 @@ mod tests {
     use super::*;
 
     fn make_graph(edges: &[(&str, &str)]) -> AgentGraph {
-        use crate::{AgentFile, EvalHints, ModelConfig, ModelProvider};
-        let node_ids: std::collections::HashSet<&str> = edges
-            .iter()
-            .flat_map(|(a, b)| [*a, *b])
-            .collect();
+        use crate::{AgentFile, ModelConfig, ModelProvider};
+        let node_ids: std::collections::HashSet<&str> =
+            edges.iter().flat_map(|(a, b)| [*a, *b]).collect();
 
         let nodes = node_ids
             .into_iter()

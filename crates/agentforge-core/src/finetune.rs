@@ -80,6 +80,7 @@ pub const MIN_TRACES_FOR_EXPORT: usize = 500;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn format_roundtrip() {
@@ -91,7 +92,10 @@ mod tests {
         ] {
             let parsed: ExportFormat = s.parse().unwrap();
             assert_eq!(parsed, expected);
-            assert_eq!(expected.to_string(), ExportFormat::from_str(s).unwrap().to_string());
+            assert_eq!(
+                expected.to_string(),
+                ExportFormat::from_str(s).unwrap().to_string()
+            );
         }
     }
 

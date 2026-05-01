@@ -1,5 +1,5 @@
 use agentforge_core::{
-    AgentFile, DifficultyTier, Result, Scenario, ScenarioExpected, ScenarioInput, ScenarioSource,
+    AgentFile, DifficultyTier, Scenario, ScenarioExpected, ScenarioInput, ScenarioSource,
 };
 use chrono::Utc;
 use uuid::Uuid;
@@ -17,7 +17,10 @@ pub struct RedTeamConfig {
 
 impl Default for RedTeamConfig {
     fn default() -> Self {
-        Self { count: 50, seed: 42 }
+        Self {
+            count: 50,
+            seed: 42,
+        }
     }
 }
 
@@ -79,17 +82,14 @@ fn probe_to_scenario(
             min_turns: None,
             max_turns: Some(3),
         },
-        difficulty: if index % 4 == 0 {
+        difficulty: if index.is_multiple_of(4) {
             DifficultyTier::Hard
         } else {
             DifficultyTier::Edge
         },
         domain: Some("red_team".to_string()),
         source: ScenarioSource::Adversarial,
-        tags: vec![
-            "red_team".to_string(),
-            probe.category.to_string(),
-        ],
+        tags: vec!["red_team".to_string(), probe.category.to_string()],
         created_at: Utc::now(),
     }
 }
@@ -111,7 +111,7 @@ impl AgentIdHint for AgentFile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agentforge_core::{EvalHints, ModelConfig, ModelProvider};
+    use agentforge_core::{ModelConfig, ModelProvider};
 
     fn make_agent() -> AgentFile {
         AgentFile {
@@ -149,6 +149,8 @@ mod tests {
     fn all_tagged_red_team() {
         let gen = RedTeamGenerator::new(RedTeamConfig::default());
         let scenarios = gen.generate(&make_agent());
-        assert!(scenarios.iter().all(|s| s.tags.contains(&"red_team".to_string())));
+        assert!(scenarios
+            .iter()
+            .all(|s| s.tags.contains(&"red_team".to_string())));
     }
 }

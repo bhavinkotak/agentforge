@@ -46,9 +46,7 @@ impl DatadogExporter {
 impl TraceExporter for DatadogExporter {
     async fn export(&self, trace: &Trace) -> Result<(), ExporterError> {
         if self.api_key.is_empty() {
-            return Err(ExporterError::Config(
-                "DD_API_KEY is not set".to_string(),
-            ));
+            return Err(ExporterError::Config("DD_API_KEY is not set".to_string()));
         }
 
         // Datadog APM expects trace_id and span_id as u64.

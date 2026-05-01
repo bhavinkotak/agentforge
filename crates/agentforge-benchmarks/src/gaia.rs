@@ -45,10 +45,7 @@ fn parse_task(v: &serde_json::Value, index: usize) -> BenchmarkTask {
         .and_then(|x| x.as_str())
         .map(|s| s.to_string());
 
-    let difficulty_level = v
-        .get("Level")
-        .and_then(|x| x.as_u64())
-        .map(|l| l as u8);
+    let difficulty_level = v.get("Level").and_then(|x| x.as_u64()).map(|l| l as u8);
 
     BenchmarkTask {
         id,
@@ -62,7 +59,11 @@ fn parse_task(v: &serde_json::Value, index: usize) -> BenchmarkTask {
 
 /// Load GAIA tasks from a `BufRead` source (file or stdin).
 pub fn load_from_reader<R: BufRead>(reader: R) -> Vec<BenchmarkTask> {
-    let content: String = reader.lines().filter_map(|l| l.ok()).collect::<Vec<_>>().join("\n");
+    let content: String = reader
+        .lines()
+        .map_while(Result::ok)
+        .collect::<Vec<_>>()
+        .join("\n");
     load_from_jsonl(&content)
 }
 

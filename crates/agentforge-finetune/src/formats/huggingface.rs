@@ -17,9 +17,10 @@ fn trace_to_record(trace: &Trace) -> Option<Value> {
             TraceStep::LlmCall(call) => {
                 if input_text.is_none() {
                     // Extract user message from the first LLM call
-                    let user_msg = call.messages.iter().find(|m| {
-                        m.get("role").and_then(|r| r.as_str()) == Some("user")
-                    });
+                    let user_msg = call
+                        .messages
+                        .iter()
+                        .find(|m| m.get("role").and_then(|r| r.as_str()) == Some("user"));
                     if let Some(msg) = user_msg {
                         input_text = msg
                             .get("content")

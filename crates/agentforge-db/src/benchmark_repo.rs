@@ -1,7 +1,5 @@
 use crate::db_err;
-use agentforge_core::{
-    AgentForgeError, BenchmarkResult, BenchmarkRun, BenchmarkSuite, Result,
-};
+use agentforge_core::{AgentForgeError, BenchmarkResult, BenchmarkRun, BenchmarkSuite, Result};
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;

@@ -27,7 +27,7 @@ impl MultiAgentRunner {
     ) -> Result<GraphRunResult> {
         let order = graph
             .topological_order()
-            .map_err(|e| agentforge_core::AgentForgeError::ConfigError(e))?;
+            .map_err(agentforge_core::AgentForgeError::ConfigError)?;
 
         let mut node_traces: HashMap<String, Vec<agentforge_core::Trace>> = HashMap::new();
         // Stores last output per scenario per node for context threading.
@@ -42,7 +42,11 @@ impl MultiAgentRunner {
                 .iter()
                 .map(|s| {
                     let mut enriched = s.clone();
-                    let mut ctx = enriched.input.context.take().unwrap_or(serde_json::Value::Object(Default::default()));
+                    let mut ctx = enriched
+                        .input
+                        .context
+                        .take()
+                        .unwrap_or(serde_json::Value::Object(Default::default()));
 
                     // Find edges pointing to this node and inject their upstream outputs.
                     for edge in &graph.edges {
@@ -51,10 +55,8 @@ impl MultiAgentRunner {
                         }
                         let key = (edge.from.clone(), s.id);
                         if let Some(upstream_output) = outputs.get(&key) {
-                            let ctx_key = edge
-                                .input_key
-                                .clone()
-                                .unwrap_or_else(|| edge.from.clone());
+                            let ctx_key =
+                                edge.input_key.clone().unwrap_or_else(|| edge.from.clone());
                             if let Some(obj) = ctx.as_object_mut() {
                                 obj.insert(ctx_key, upstream_output.clone());
                             }
@@ -66,8 +68,7 @@ impl MultiAgentRunner {
                 })
                 .collect();
 
-            let runner =
-                AgentRunner::new(self.llm.clone(), self.config.clone());
+            let runner = AgentRunner::new(self.llm.clone(), self.config.clone());
             let result = runner.run(&node.agent, enriched_scenarios, None).await;
 
             // Capture outputs for downstream nodes.

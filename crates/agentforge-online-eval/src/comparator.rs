@@ -1,5 +1,5 @@
-use agentforge_core::{DimensionComparison, DimensionOutcome, ShadowComparison, Trace};
 use crate::shadow::ShadowRunOutput;
+use agentforge_core::{DimensionComparison, DimensionOutcome, ShadowComparison, Trace};
 use chrono::Utc;
 use uuid::Uuid;
 
