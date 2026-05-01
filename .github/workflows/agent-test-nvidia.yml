@@ -24,8 +24,9 @@ jobs:
   agent-test-nvidia:
     name: Agent Eval (NVIDIA NIM)
     runs-on: ubuntu-latest
-    # Skip gracefully when no API key is configured (e.g. forks, contributor PRs).
-    if: ${{ secrets.NVIDIA_API_KEY != '' }}
+    # continue-on-error so this job doesn't block the overall workflow when
+    # NVIDIA_API_KEY is not configured (e.g. forks, contributor PRs).
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -61,6 +62,11 @@ jobs:
           AGENTFORGE_JUDGE_PROVIDER: nvidia
           AGENTFORGE_NVIDIA_MODEL: meta/llama-3.1-8b-instruct
         run: |
+          if [ -z "$NVIDIA_API_KEY" ]; then
+            echo "NVIDIA_API_KEY secret not configured — skipping eval."
+            echo "Add NVIDIA_API_KEY under Settings → Secrets → Actions to enable this job."
+            exit 0
+          fi
           ./target/release/agentforge run \
             --agent fixtures/customer-support-agent.yaml \
             --scenarios 5 \
