@@ -135,7 +135,14 @@ async fn run_single_with_retry(
                     );
                     tokio::time::sleep(Duration::from_millis(delay)).await;
                 } else {
-                    // Persistent failure
+                    // Persistent failure — log so the error is visible in CI
+                    tracing::error!(
+                        scenario_id = %scenario.id,
+                        scenario_input = %scenario.input.user_message,
+                        retry_count = retry_count,
+                        error = %e,
+                        "Scenario failed (non-transient error)"
+                    );
                     return error_trace(scenario, config, retry_count, &e);
                 }
             }
@@ -227,10 +234,43 @@ async fn run_single(
             top_p: agent.model.top_p,
         };
 
+        tracing::debug!(
+            scenario_id = %scenario.id,
+            turn = _turn,
+            model = %request.model,
+            num_messages = request.messages.len(),
+            has_tools = request.tools.is_some(),
+            provider = %llm.provider_name(),
+            "Sending LLM request"
+        );
         let llm_call_start = Instant::now();
-        let response = llm.complete(request.clone()).await?;
+        let response = match llm.complete(request.clone()).await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!(
+                    scenario_id = %scenario.id,
+                    turn = _turn,
+                    model = %request.model,
+                    provider = %llm.provider_name(),
+                    error = %e,
+                    "LLM call failed"
+                );
+                return Err(e);
+            }
+        };
         let llm_latency = llm_call_start.elapsed().as_millis() as u64;
         llm_calls += 1;
+        tracing::debug!(
+            scenario_id = %scenario.id,
+            turn = _turn,
+            model = %response.model,
+            input_tokens = response.input_tokens,
+            output_tokens = response.output_tokens,
+            finish_reason = %response.finish_reason,
+            has_tool_calls = response.message.tool_calls.is_some(),
+            latency_ms = llm_latency,
+            "LLM response received"
+        );
         total_input_tokens += response.input_tokens;
         total_output_tokens += response.output_tokens;
 
