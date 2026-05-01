@@ -92,12 +92,11 @@ impl FineTuneRepo {
         error_message: Option<&str>,
     ) -> Result<()> {
         let status_str = status.to_string();
-        let completed_at =
-            if *status == ExportStatus::Complete || *status == ExportStatus::Error {
-                Some(Utc::now())
-            } else {
-                None
-            };
+        let completed_at = if *status == ExportStatus::Complete || *status == ExportStatus::Error {
+            Some(Utc::now())
+        } else {
+            None
+        };
 
         sqlx::query(
             "UPDATE finetune_exports \

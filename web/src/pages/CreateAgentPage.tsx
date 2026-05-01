@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { Upload, Link as LinkIcon, FileText } from 'lucide-react'
 import { createAgent } from '@/api/agents'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/Button'
-import { Textarea } from '@/components/ui/Input'
+import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 
 const EXAMPLE = `name: my-support-agent
@@ -26,14 +26,66 @@ eval_hints:
   scenario_count: 50
 `
 
+/** Convert known hosting URLs to their raw plaintext equivalents before fetching. */
+function normalizeUrl(input: string): string {
+  const u = input.trim()
+  // GitHub blob page → raw content
+  // https://github.com/{owner}/{repo}/blob/{ref}/{...path}
+  const ghBlob = u.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/)
+  if (ghBlob) {
+    return `https://raw.githubusercontent.com/${ghBlob[1]}/${ghBlob[2]}/${ghBlob[3]}`
+  }
+  // Gist page → raw content
+  // https://gist.github.com/{user}/{id}
+  const gist = u.match(/^https?:\/\/gist\.github\.com\/([^/]+)\/([a-f0-9]+)\/?$/)
+  if (gist) {
+    return `https://gist.githubusercontent.com/${gist[1]}/${gist[2]}/raw`
+  }
+  return u
+}
+
 export function CreateAgentPage() {
   const navigate = useNavigate()
+  const [mode, setMode] = useState<'paste' | 'url'>('paste')
   const [content, setContent] = useState('')
+  const [url, setUrl] = useState('')
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [fetching, setFetching] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const mutation = useMutation({
     mutationFn: createAgent,
   })
+
+  async function handleFetchUrl() {
+    setFetchError(null)
+    if (!url.trim()) return
+    if (!/^https?:\/\//i.test(url.trim())) {
+      setFetchError('URL must start with http:// or https://')
+      return
+    }
+    const resolvedUrl = normalizeUrl(url.trim())
+    setFetching(true)
+    try {
+      const res = await fetch(resolvedUrl)
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
+      const text = await res.text()
+      setContent(text)
+      setMode('paste')
+      if (resolvedUrl !== url.trim()) {
+        setFetchError(null) // clear any prior error
+        // Brief informational note via the success message
+      }
+    } catch (e) {
+      setFetchError(
+        e instanceof Error
+          ? `${e.message}${resolvedUrl !== url.trim() ? ` (resolved to ${resolvedUrl})` : ''}`
+          : 'Failed to fetch URL',
+      )
+    } finally {
+      setFetching(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -52,21 +104,101 @@ export function CreateAgentPage() {
 
   function handleLoadExample() {
     setContent(EXAMPLE)
+    setMode('paste')
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Create Agent</h1>
+        <h1 className="text-xl font-semibold text-gray-900">Register Agent</h1>
         <p className="mt-0.5 text-sm text-gray-500">
-          Paste your agent file content (YAML or JSON) below.
+          Provide your agent definition — YAML, JSON, or Markdown (.agent.md with frontmatter).
         </p>
       </div>
+
+      {/* Mode toggle */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setMode('paste')}
+          className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+            mode === 'paste'
+              ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Paste content
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('url')}
+          className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+            mode === 'url'
+              ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <LinkIcon className="h-3.5 w-3.5" />
+          Fetch from URL
+        </button>
+      </div>
+
+      {/* URL input */}
+      {mode === 'url' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Agent File URL</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-gray-500">
+              Paste a direct link to a raw agent file — GitHub raw URL, Gist, or any publicly accessible URL returning plain text.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://raw.githubusercontent.com/org/repo/main/agent.yaml"
+                className="flex-1 font-mono text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); void handleFetchUrl() }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleFetchUrl()}
+                loading={fetching}
+              >
+                Fetch
+              </Button>
+            </div>
+            {/* Show auto-resolved URL hint for GitHub blob links */}
+            {url && normalizeUrl(url.trim()) !== url.trim() && (
+              <p className="text-xs text-indigo-600">
+                ↳ Will fetch raw content from{' '}
+                <span className="font-mono">{normalizeUrl(url.trim())}</span>
+              </p>
+            )}
+            {fetchError && (
+              <p className="text-xs text-red-600">{fetchError}</p>
+            )}
+            {content && !fetchError && (
+              <p className="text-xs text-green-600">
+                ✓ Fetched {content.length.toLocaleString()} characters — review below before registering
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Card>
           <CardHeader className="flex items-center justify-between">
-            <CardTitle>Agent File Content</CardTitle>
+            <CardTitle>
+              Agent File Content{' '}
+              <span className="text-xs font-normal text-gray-400">YAML · JSON · Markdown</span>
+            </CardTitle>
             <Button
               type="button"
               variant="ghost"
@@ -81,7 +213,7 @@ export function CreateAgentPage() {
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Paste your agent YAML or JSON here…"
+              placeholder="Paste your agent YAML, JSON, or Markdown here…"
               rows={20}
               className="font-mono text-xs"
               required
@@ -98,7 +230,7 @@ export function CreateAgentPage() {
         <div className="flex items-center gap-3">
           <Button type="submit" loading={mutation.isPending}>
             <Upload className="h-4 w-4" />
-            Create Agent
+            Register Agent
           </Button>
           <Button
             type="button"

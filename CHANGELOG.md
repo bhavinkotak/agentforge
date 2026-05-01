@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.4](https://github.com/bhavinkotak/agentforge/compare/agentforge-v0.1.3...agentforge-v0.1.4) (2026-04-30)
+
+
+### Features
+
+* add React UI, new API routes, migrations, and test script ([0eb4ac8](https://github.com/bhavinkotak/agentforge/commit/0eb4ac86c5e3a8124190c79caa88b8c6e5df6b12))
+* **ui:** register agent UX improvements and scorecard error banner ([bdb2c69](https://github.com/bhavinkotak/agentforge/commit/bdb2c69107949d6187079acee004b10ea2d27f46))
+
+
+### Bug Fixes
+
+* completed_count/error_count never written + GitHub URL auto-resolve ([b2446e6](https://github.com/bhavinkotak/agentforge/commit/b2446e6fd37da6ffb4485f2b69b10250f703e10c))
+
 ## [0.1.3](https://github.com/bhavinkotak/agentforge/compare/agentforge-v0.1.2...agentforge-v0.1.3) (2026-04-30)
 
 

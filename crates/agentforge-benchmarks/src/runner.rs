@@ -28,11 +28,7 @@ impl BenchmarkRunner {
     }
 
     /// Execute the agent on all tasks, score answers, compute accuracy and percentile.
-    pub async fn run(
-        &self,
-        agent: &AgentFile,
-        tasks: Vec<BenchmarkTask>,
-    ) -> Result<BenchmarkRun> {
+    pub async fn run(&self, agent: &AgentFile, tasks: Vec<BenchmarkTask>) -> Result<BenchmarkRun> {
         let run_id = Uuid::new_v4();
         let started_at = Utc::now();
 
@@ -44,8 +40,7 @@ impl BenchmarkRunner {
         );
 
         // Convert tasks to scenarios.
-        let scenarios =
-            BenchmarkNormalizer::to_scenarios(&tasks, self.config.agent_id);
+        let scenarios = BenchmarkNormalizer::to_scenarios(&tasks, self.config.agent_id);
 
         let runner = AgentRunner::new(self.llm.clone(), self.config.runner_config.clone());
         let run_result = runner.run(agent, scenarios, None).await;
@@ -72,8 +67,7 @@ impl BenchmarkRunner {
             correct as f64 / total as f64
         };
 
-        let percentile_rank =
-            BenchmarkNormalizer::percentile_rank(&self.config.suite, accuracy);
+        let percentile_rank = BenchmarkNormalizer::percentile_rank(&self.config.suite, accuracy);
 
         Ok(BenchmarkRun {
             id: run_id,

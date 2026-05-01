@@ -72,7 +72,7 @@ pub async fn start_export(
         .as_deref()
         .unwrap_or("openai")
         .parse::<ExportFormat>()
-        .map_err(|e| ApiError::bad_request(e))?;
+        .map_err(ApiError::bad_request)?;
 
     let export = FineTuneExport {
         id: Uuid::new_v4(),
@@ -108,15 +108,12 @@ pub async fn get_export(
     Path(id): Path<Uuid>,
 ) -> ApiResult<Json<FineTuneExportResponse>> {
     let finetune_repo = FineTuneRepo::new(state.db.clone());
-    let export = finetune_repo
-        .find_by_id(id)
-        .await
-        .map_err(|e| match e {
-            AgentForgeError::NotFound { .. } => {
-                ApiError::not_found(format!("Fine-tune export {id} not found"))
-            }
-            other => ApiError::internal(other.to_string()),
-        })?;
+    let export = finetune_repo.find_by_id(id).await.map_err(|e| match e {
+        AgentForgeError::NotFound { .. } => {
+            ApiError::not_found(format!("Fine-tune export {id} not found"))
+        }
+        other => ApiError::internal(other.to_string()),
+    })?;
 
     Ok(Json(export.into()))
 }

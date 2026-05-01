@@ -5,9 +5,8 @@ use std::process;
 use uuid::Uuid;
 
 use agentforge_db::{
-    agent_repo::AgentRepo, create_pool, eval_repo::EvalRepo,
-    finetune_repo::FineTuneRepo, scenario_repo::ScenarioRepo, shadow_repo::ShadowRepo,
-    trace_repo::TraceRepo,
+    agent_repo::AgentRepo, create_pool, eval_repo::EvalRepo, finetune_repo::FineTuneRepo,
+    scenario_repo::ScenarioRepo, shadow_repo::ShadowRepo, trace_repo::TraceRepo,
 };
 use agentforge_gatekeeper::{GateStatus, Gatekeeper, GatekeeperConfig};
 use agentforge_parser::{parse_agent_file, to_agent_version, validate_agent_file};
@@ -121,7 +120,6 @@ enum Commands {
     },
 }
 
-
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -173,8 +171,16 @@ async fn run_command(command: Commands) -> Result<i32> {
             candidate,
             traffic_percent,
         } => cmd_shadow(champion, candidate, traffic_percent).await,
-        Commands::Export { run, format, output } => cmd_export(run, format, output).await,
-        Commands::Benchmark { agent, suite, tasks } => cmd_benchmark(agent, suite, tasks).await,
+        Commands::Export {
+            run,
+            format,
+            output,
+        } => cmd_export(run, format, output).await,
+        Commands::Benchmark {
+            agent,
+            suite,
+            tasks,
+        } => cmd_benchmark(agent, suite, tasks).await,
     }
 }
 
@@ -271,7 +277,10 @@ async fn cmd_run(
             seed,
         });
         let rt_scenarios = rt_gen.generate(&agent_file);
-        println!("Red-team: appending {} adversarial probes.", rt_scenarios.len());
+        println!(
+            "Red-team: appending {} adversarial probes.",
+            rt_scenarios.len()
+        );
         scenarios.extend(rt_scenarios);
     }
 
@@ -641,11 +650,7 @@ async fn require_db() -> Result<agentforge_db::PgPool> {
 }
 
 /// v2: Shadow run — compare champion vs. candidate on live traffic.
-async fn cmd_shadow(
-    champion_id: Uuid,
-    candidate_id: Uuid,
-    traffic_percent: u8,
-) -> Result<i32> {
+async fn cmd_shadow(champion_id: Uuid, candidate_id: Uuid, traffic_percent: u8) -> Result<i32> {
     let db = require_db().await?;
     let shadow_repo = ShadowRepo::new(db.clone());
     let agent_repo = AgentRepo::new(db);
@@ -661,11 +666,7 @@ async fn cmd_shadow(
 
     println!(
         "Shadow run: {} v{} (champion) vs {} v{} (candidate) — {}% traffic",
-        champion.name,
-        champion.version,
-        candidate.name,
-        candidate.version,
-        traffic_percent
+        champion.name, champion.version, candidate.name, candidate.version, traffic_percent
     );
 
     let run = agentforge_core::ShadowRun {
@@ -696,9 +697,7 @@ async fn cmd_export(run_id: Uuid, format_str: String, output: Option<PathBuf>) -
     let trace_repo = TraceRepo::new(db.clone());
     let finetune_repo = FineTuneRepo::new(db);
 
-    let format: ExportFormat = format_str
-        .parse()
-        .map_err(|e: String| anyhow::anyhow!(e))?;
+    let format: ExportFormat = format_str.parse().map_err(|e: String| anyhow::anyhow!(e))?;
 
     println!("Loading traces for run {}...", run_id);
     let traces = trace_repo
@@ -747,7 +746,9 @@ async fn cmd_export(run_id: Uuid, format_str: String, output: Option<PathBuf>) -
 
 /// v2: Benchmark — run agent against a benchmark suite.
 async fn cmd_benchmark(agent_path: PathBuf, suite_str: String, tasks_path: PathBuf) -> Result<i32> {
-    use agentforge_benchmarks::{agentbench, gaia, webarena, BenchmarkRunner, BenchmarkRunnerConfig};
+    use agentforge_benchmarks::{
+        agentbench, gaia, webarena, BenchmarkRunner, BenchmarkRunnerConfig,
+    };
     use agentforge_core::BenchmarkSuite;
 
     let content = std::fs::read_to_string(&agent_path)
