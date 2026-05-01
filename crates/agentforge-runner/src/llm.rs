@@ -25,6 +25,8 @@ pub enum LlmRole {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
     pub id: String,
+    /// Serialized as `"type"` to match the OpenAI / NVIDIA NIM wire format.
+    #[serde(rename = "type")]
     pub tool_type: String,
     pub function: ToolCallFunction,
 }

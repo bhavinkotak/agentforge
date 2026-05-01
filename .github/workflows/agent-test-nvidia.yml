@@ -16,7 +16,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
+  RUST_BACKTRACE: ${{ vars.AGENTFORGE_DEBUG == 'true' && 'full' || '1' }}
   SQLX_OFFLINE: true
 
 jobs:
@@ -62,14 +62,24 @@ jobs:
           AGENTFORGE_JUDGE_PROVIDER: nvidia
           # Use 70B — better function-calling support for the tool-heavy fixture.
           AGENTFORGE_NVIDIA_MODEL: meta/llama-3.1-70b-instruct
+          # Set repo variable AGENTFORGE_DEBUG=true (Settings → Variables → Actions)
+          # to enable verbose trace-level logging.
+          RUST_LOG: ${{ vars.AGENTFORGE_DEBUG == 'true' && 'agentforge=debug,agentforge_runner=debug,agentforge_scenarios=debug,agentforge_scorer=debug' || 'warn' }}
         run: |
           if [ -z "$NVIDIA_API_KEY" ]; then
             echo "NVIDIA_API_KEY secret not configured — skipping eval."
             echo "Add NVIDIA_API_KEY under Settings → Secrets → Actions to enable this job."
             exit 0
           fi
+          VERBOSE_FLAG=""
+          if [ "${{ vars.AGENTFORGE_DEBUG }}" = "true" ]; then
+            VERBOSE_FLAG="-vv"
+            echo "=== DEBUG MODE ENABLED (AGENTFORGE_DEBUG=true) ==="
+            echo "AGENTFORGE_NVIDIA_MODEL: $AGENTFORGE_NVIDIA_MODEL"
+            echo "AGENTFORGE_JUDGE_PROVIDER: $AGENTFORGE_JUDGE_PROVIDER"
+          fi
           EVAL_EXIT=0
-          ./target/release/agentforge run \
+          ./target/release/agentforge run $VERBOSE_FLAG \
             --agent fixtures/customer-support-agent.yaml \
             --scenarios 5 \
             --concurrency 2 \
