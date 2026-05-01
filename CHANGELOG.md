@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5](https://github.com/bhavinkotak/agentforge/compare/agentforge-v0.1.4...agentforge-v0.1.5) (2026-05-01)
+
+
+### Bug Fixes
+
+* build issues ([e3c3466](https://github.com/bhavinkotak/agentforge/commit/e3c34662fef0f80e599d18fc13e2a23c1847518f))
+* update Cargo.lock to fix --locked build failures ([d6590c8](https://github.com/bhavinkotak/agentforge/commit/d6590c8074dfd35b313aad4ce969bcc21933fbcb))
+
 ## [0.1.4](https://github.com/bhavinkotak/agentforge/compare/agentforge-v0.1.3...agentforge-v0.1.4) (2026-04-30)
 
 
