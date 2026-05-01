@@ -498,6 +498,13 @@ impl NvidiaClient {
 #[async_trait]
 impl LlmClient for NvidiaClient {
     async fn complete(&self, request: LlmRequest) -> Result<LlmResponse> {
+        // The agent fixture may specify an OpenAI model (e.g. "gpt-4o").
+        // Always override with the configured NVIDIA NIM model so the request
+        // is valid for the NVIDIA endpoint.
+        let request = LlmRequest {
+            model: self.inner.model_id().to_string(),
+            ..request
+        };
         self.inner.complete(request).await
     }
 
