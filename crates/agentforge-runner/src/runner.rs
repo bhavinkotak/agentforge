@@ -327,13 +327,16 @@ async fn run_single(
                 }));
                 step_index += 1;
 
-                // Add tool result to messages
+                // Add tool result to messages.
+                // Per OpenAI spec: role=tool, content=<result string>, tool_call_id=<id>.
+                // Do NOT include `name` — it is not part of the tool-result message spec
+                // and confuses vLLM-backed endpoints (e.g. NVIDIA NIM Mistral).
                 messages.push(LlmMessage {
                     role: LlmRole::Tool,
                     content: Some(serde_json::to_string(&tool_result).unwrap_or_default()),
                     tool_calls: None,
                     tool_call_id: Some(tc.id.clone()),
-                    name: Some(tc.function.name.clone()),
+                    name: None,
                 });
             }
             // Continue the loop for the next LLM response

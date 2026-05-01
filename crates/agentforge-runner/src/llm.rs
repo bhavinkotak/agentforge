@@ -123,6 +123,12 @@ impl LlmClient for OpenAiClient {
                 });
                 if let Some(content) = &m.content {
                     obj["content"] = serde_json::json!(content);
+                } else if m.role == LlmRole::Assistant {
+                    // Some vLLM backends (e.g. NVIDIA NIM Mistral) require an explicit
+                    // `"content": null` on assistant tool-call messages; omitting the
+                    // key entirely causes the template engine to misidentify the last
+                    // message role and return HTTP 400.
+                    obj["content"] = serde_json::Value::Null;
                 }
                 if let Some(tool_calls) = &m.tool_calls {
                     obj["tool_calls"] = serde_json::to_value(tool_calls).unwrap_or_default();
