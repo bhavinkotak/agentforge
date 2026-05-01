@@ -151,6 +151,7 @@ pub(crate) fn parse_provider(s: &str) -> ModelProvider {
         "anthropic" => ModelProvider::Anthropic,
         "ollama" => ModelProvider::Ollama,
         "bedrock" => ModelProvider::Bedrock,
+        "nvidia" | "nvidia_nim" => ModelProvider::NvidiaNim,
         _ => ModelProvider::Custom,
     }
 }

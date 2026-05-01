@@ -33,6 +33,7 @@ pub enum ModelProvider {
     Anthropic,
     Ollama,
     Bedrock,
+    NvidiaNim,
     Custom,
 }
 
@@ -43,6 +44,7 @@ impl std::fmt::Display for ModelProvider {
             ModelProvider::Anthropic => write!(f, "anthropic"),
             ModelProvider::Ollama => write!(f, "ollama"),
             ModelProvider::Bedrock => write!(f, "bedrock"),
+            ModelProvider::NvidiaNim => write!(f, "nvidia_nim"),
             ModelProvider::Custom => write!(f, "custom"),
         }
     }

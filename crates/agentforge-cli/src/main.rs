@@ -10,7 +10,7 @@ use agentforge_db::{
 };
 use agentforge_gatekeeper::{GateStatus, Gatekeeper, GatekeeperConfig};
 use agentforge_parser::{parse_agent_file, to_agent_version, validate_agent_file};
-use agentforge_runner::{AgentRunner, AnthropicClient, OpenAiClient, RunnerConfig};
+use agentforge_runner::{AgentRunner, AnthropicClient, NvidiaClient, OpenAiClient, RunnerConfig};
 use agentforge_scenarios::{generate_scenarios, ScenarioGeneratorConfig};
 use agentforge_scorer::{score_run, ScorerConfig};
 
@@ -631,6 +631,11 @@ fn build_llm_client() -> Result<std::sync::Arc<dyn agentforge_runner::LlmClient>
         "anthropic" => Ok(std::sync::Arc::new(
             AnthropicClient::from_env()
                 .ok_or_else(|| anyhow::anyhow!("ANTHROPIC_API_KEY must be set"))?,
+        )
+            as std::sync::Arc<dyn agentforge_runner::LlmClient>),
+        "nvidia" => Ok(std::sync::Arc::new(
+            NvidiaClient::from_env()
+                .ok_or_else(|| anyhow::anyhow!("NVIDIA_API_KEY must be set"))?,
         )
             as std::sync::Arc<dyn agentforge_runner::LlmClient>),
         _ => Ok(std::sync::Arc::new(

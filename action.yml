@@ -27,11 +27,11 @@ inputs:
     required: false
     default: '0.85'
   provider:
-    description: 'LLM provider for the agent under test: openai | anthropic'
+    description: 'LLM provider for the agent under test: openai | anthropic | nvidia'
     required: false
     default: 'openai'
   judge_provider:
-    description: 'LLM provider for the judge (must differ from agent provider)'
+    description: 'LLM provider for the judge (must differ from agent provider): openai | anthropic | nvidia'
     required: false
     default: 'anthropic'
 
@@ -87,6 +87,7 @@ runs:
       env:
         OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
         ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
+        NVIDIA_API_KEY: ${{ env.NVIDIA_API_KEY }}
         DATABASE_URL: ${{ env.DATABASE_URL }}
       run: |
         set +e

@@ -4,7 +4,7 @@ use agentforge_api::{router, AppState};
 use agentforge_db::create_pool;
 use agentforge_gatekeeper::GatekeeperConfig;
 use agentforge_observability::build_exporter;
-use agentforge_runner::{AnthropicClient, LlmClient, OpenAiClient};
+use agentforge_runner::{AnthropicClient, LlmClient, NvidiaClient, OpenAiClient};
 use agentforge_scorer::ScorerConfig;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -30,6 +30,10 @@ async fn main() -> anyhow::Result<()> {
             "anthropic" => Arc::new(
                 AnthropicClient::from_env()
                     .expect("ANTHROPIC_API_KEY must be set when using anthropic provider"),
+            ) as Arc<dyn LlmClient>,
+            "nvidia" => Arc::new(
+                NvidiaClient::from_env()
+                    .expect("NVIDIA_API_KEY must be set when using nvidia provider"),
             ) as Arc<dyn LlmClient>,
             _ => Arc::new(
                 OpenAiClient::from_env()

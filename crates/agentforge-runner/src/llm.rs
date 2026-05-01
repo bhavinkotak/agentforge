@@ -452,6 +452,64 @@ fn parse_anthropic_response(raw: serde_json::Value, latency_ms: u64) -> Result<L
     })
 }
 
+/// NVIDIA NIM client.
+///
+/// NVIDIA NIM exposes a fully OpenAI-compatible `/chat/completions` endpoint at
+/// `https://integrate.api.nvidia.com/v1`, so this client is a thin wrapper around
+/// [`OpenAiClient`] with a different base URL and provider name.
+///
+/// # Free models available on build.nvidia.com
+///
+/// The following models are available under the free tier and require no credits:
+///
+/// | Model ID | Notes |
+/// |---|---|
+/// | `meta/llama-3.1-8b-instruct` | Default — fast, good for evals |
+/// | `meta/llama-3.1-70b-instruct` | Higher quality, slower |
+/// | `mistralai/mistral-7b-instruct-v0.3` | Compact, general purpose |
+/// | `nvidia/nemotron-mini-4b-instruct` | NVIDIA-tuned, very fast |
+/// | `microsoft/phi-3-mini-4k-instruct` | Efficient small model |
+///
+/// Set `AGENTFORGE_NVIDIA_MODEL` to override the default model.
+pub struct NvidiaClient {
+    inner: OpenAiClient,
+}
+
+impl NvidiaClient {
+    /// Create a new NVIDIA NIM client targeting `build.nvidia.com`.
+    pub fn new(api_key: impl Into<String>, model: impl Into<String>) -> Self {
+        Self {
+            inner: OpenAiClient::new("https://integrate.api.nvidia.com/v1", api_key, model),
+        }
+    }
+
+    /// Construct from environment variables.
+    ///
+    /// Reads `NVIDIA_API_KEY` (required) and `AGENTFORGE_NVIDIA_MODEL`
+    /// (optional, defaults to `meta/llama-3.1-8b-instruct`).
+    pub fn from_env() -> Option<Self> {
+        let api_key = std::env::var("NVIDIA_API_KEY").ok()?;
+        let model = std::env::var("AGENTFORGE_NVIDIA_MODEL")
+            .unwrap_or_else(|_| "meta/llama-3.1-8b-instruct".to_string());
+        Some(Self::new(api_key, model))
+    }
+}
+
+#[async_trait]
+impl LlmClient for NvidiaClient {
+    async fn complete(&self, request: LlmRequest) -> Result<LlmResponse> {
+        self.inner.complete(request).await
+    }
+
+    fn provider_name(&self) -> &str {
+        "nvidia"
+    }
+
+    fn model_id(&self) -> &str {
+        self.inner.model_id()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

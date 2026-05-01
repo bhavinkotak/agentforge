@@ -1,0 +1,68 @@
+name: Agent Test (NVIDIA NIM)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvidia-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  SQLX_OFFLINE: true
+
+jobs:
+  # ─── Run agent eval against free NVIDIA NIM models ──────────────────────────
+  agent-test-nvidia:
+    name: Agent Eval (NVIDIA NIM)
+    runs-on: ubuntu-latest
+    # Skip gracefully when no API key is configured (e.g. forks, contributor PRs).
+    if: ${{ secrets.NVIDIA_API_KEY != '' }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-nvidia-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-nvidia-test-
+
+      - name: Build CLI
+        run: cargo build --package agentforge-cli --release --locked
+
+      - name: Run agent eval (NVIDIA NIM — free tier)
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          # Use a free NVIDIA NIM model for both agent and judge.
+          # Override via AGENTFORGE_NVIDIA_MODEL env if needed.
+          # Free models: meta/llama-3.1-8b-instruct, meta/llama-3.1-70b-instruct,
+          #              mistralai/mistral-7b-instruct-v0.3,
+          #              nvidia/nemotron-mini-4b-instruct,
+          #              microsoft/phi-3-mini-4k-instruct
+          AGENTFORGE_JUDGE_PROVIDER: nvidia
+          AGENTFORGE_NVIDIA_MODEL: meta/llama-3.1-8b-instruct
+        run: |
+          ./target/release/agentforge run \
+            --agent fixtures/customer-support-agent.yaml \
+            --scenarios 5 \
+            --concurrency 2 \
+            --seed 42
