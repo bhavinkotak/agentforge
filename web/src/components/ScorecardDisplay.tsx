@@ -48,9 +48,37 @@ interface Props {
 export function ScorecardDisplay({ run }: Props) {
   const agg = run.aggregate_score
   const pr = run.pass_rate
+  const allErrored = run.error_count > 0 && run.error_count >= run.scenario_count
+  const someErrored = run.error_count > 0 && !allErrored
 
   return (
     <div className="space-y-6">
+      {/* All traces errored — explain why scores are 0 */}
+      {allErrored && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-medium">
+            All {run.error_count} trace{run.error_count !== 1 ? 's' : ''} errored — scores are unavailable.
+          </p>
+          <p className="mt-1 text-amber-700">
+            This usually means the agent's LLM API key is missing or invalid. Set a valid{' '}
+            <code className="rounded bg-amber-100 px-1 font-mono text-xs">OPENAI_API_KEY</code>{' '}
+            in your <code className="rounded bg-amber-100 px-1 font-mono text-xs">.env</code> file and re-run the evaluation.
+          </p>
+          {run.error_message && (
+            <p className="mt-1.5 font-mono text-xs text-amber-700 break-all">{run.error_message}</p>
+          )}
+        </div>
+      )}
+
+      {/* Some traces errored */}
+      {someErrored && (
+        <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+          {run.error_count} of {run.scenario_count} traces errored — scores reflect only the{' '}
+          {run.completed_count} successful traces. Check your{' '}
+          <code className="rounded bg-yellow-100 px-1 font-mono text-xs">OPENAI_API_KEY</code>.
+        </div>
+      )}
+
       {/* Headline metrics */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Metric label="Aggregate Score" value={fmtScore(agg)} highlight={!!agg && agg >= 0.85} />
@@ -59,11 +87,11 @@ export function ScorecardDisplay({ run }: Props) {
           label="Scenarios"
           value={`${run.completed_count} / ${run.scenario_count}`}
         />
-        <Metric label="Errors" value={String(run.error_count)} />
+        <Metric label="Errors" value={String(run.error_count)} warn={run.error_count > 0} />
       </div>
 
-      {/* Dimension bars */}
-      {run.scores && (
+      {/* Dimension bars — suppress when all traces errored (all-zero bars are misleading) */}
+      {run.scores && !allErrored && (
         <div className="rounded-lg border border-gray-200 bg-white p-5">
           <h3 className="mb-4 text-sm font-semibold text-gray-900">
             Dimension Scores
@@ -97,10 +125,12 @@ function Metric({
   label,
   value,
   highlight,
+  warn,
 }: {
   label: string
   value: string
   highlight?: boolean
+  warn?: boolean
 }) {
   return (
     <div
@@ -108,6 +138,8 @@ function Metric({
         'rounded-lg border p-4',
         highlight
           ? 'border-green-200 bg-green-50'
+          : warn
+          ? 'border-amber-200 bg-amber-50'
           : 'border-gray-200 bg-white',
       )}
     >
@@ -115,7 +147,7 @@ function Metric({
       <p
         className={cn(
           'mt-1 text-2xl font-semibold tabular-nums',
-          highlight ? 'text-green-700' : 'text-gray-900',
+          highlight ? 'text-green-700' : warn ? 'text-amber-700' : 'text-gray-900',
         )}
       >
         {value}
