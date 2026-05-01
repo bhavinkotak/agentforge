@@ -68,12 +68,12 @@ jobs:
             echo "Add NVIDIA_API_KEY under Settings → Secrets → Actions to enable this job."
             exit 0
           fi
+          EVAL_EXIT=0
           ./target/release/agentforge run \
             --agent fixtures/customer-support-agent.yaml \
             --scenarios 5 \
             --concurrency 2 \
-            --seed 42
-          EVAL_EXIT=$?
+            --seed 42 || EVAL_EXIT=$?
           if [ "$EVAL_EXIT" -eq 0 ]; then
             echo "All scenarios passed the evaluation threshold."
           elif [ "$EVAL_EXIT" -eq 1 ]; then
