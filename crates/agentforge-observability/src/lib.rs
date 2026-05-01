@@ -87,7 +87,9 @@ pub fn build_exporter() -> Box<dyn TraceExporter> {
             Box::new(datadog::DatadogExporter::from_env())
         }
         ObservabilityBackend::Disabled => {
-            tracing::debug!("Observability: disabled (set AGENTFORGE_OBSERVABILITY_BACKEND to enable)");
+            tracing::debug!(
+                "Observability: disabled (set AGENTFORGE_OBSERVABILITY_BACKEND to enable)"
+            );
             Box::new(NoopExporter)
         }
     }

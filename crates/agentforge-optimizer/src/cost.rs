@@ -1,5 +1,4 @@
 use agentforge_core::{AgentFile, CostBreakdown, CostRecommendation, ModelProvider, Trace};
-use std::collections::HashMap;
 
 /// Price per 1M tokens in USD (input, output) for known models.
 #[derive(Debug, Clone)]

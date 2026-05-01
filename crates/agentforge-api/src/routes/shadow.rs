@@ -115,15 +115,12 @@ pub async fn get_shadow_run(
     Path(id): Path<Uuid>,
 ) -> ApiResult<Json<ShadowRunResponse>> {
     let shadow_repo = ShadowRepo::new(state.db.clone());
-    let run = shadow_repo
-        .find_by_id(id)
-        .await
-        .map_err(|e| match e {
-            AgentForgeError::NotFound { .. } => {
-                ApiError::not_found(format!("Shadow run {id} not found"))
-            }
-            other => ApiError::internal(other.to_string()),
-        })?;
+    let run = shadow_repo.find_by_id(id).await.map_err(|e| match e {
+        AgentForgeError::NotFound { .. } => {
+            ApiError::not_found(format!("Shadow run {id} not found"))
+        }
+        other => ApiError::internal(other.to_string()),
+    })?;
 
     Ok(Json(run.into()))
 }

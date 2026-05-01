@@ -36,11 +36,7 @@ impl GraphRunResult {
         let passing: usize = node_traces
             .values()
             .flat_map(|v| v.iter())
-            .filter(|t| {
-                t.aggregate_score
-                    .map(|s| s >= 0.5)
-                    .unwrap_or(false)
-            })
+            .filter(|t| t.aggregate_score.map(|s| s >= 0.5).unwrap_or(false))
             .count();
 
         let pass_rate = if total_traces == 0 {

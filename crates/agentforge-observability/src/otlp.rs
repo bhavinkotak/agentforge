@@ -1,8 +1,8 @@
-use agentforge_core::{Trace, TraceStep};
+use agentforge_core::Trace;
 use async_trait::async_trait;
 use opentelemetry::{
     global,
-    trace::{Span, SpanKind, TraceContextExt, Tracer},
+    trace::{Span, SpanKind, Tracer},
     Context, KeyValue,
 };
 
@@ -21,7 +21,10 @@ pub struct OtlpExporter {
 
 impl OtlpExporter {
     pub fn new(endpoint: String, service_name: String) -> Self {
-        Self { endpoint, service_name }
+        Self {
+            endpoint,
+            service_name,
+        }
     }
 
     pub fn from_env() -> Self {

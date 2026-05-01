@@ -31,8 +31,7 @@ impl LangSmithExporter {
     pub fn from_env() -> Self {
         Self::new(
             std::env::var("LANGSMITH_API_KEY").unwrap_or_default(),
-            std::env::var("LANGSMITH_PROJECT")
-                .unwrap_or_else(|_| "agentforge".to_string()),
+            std::env::var("LANGSMITH_PROJECT").unwrap_or_else(|_| "agentforge".to_string()),
             std::env::var("LANGSMITH_API_URL")
                 .unwrap_or_else(|_| "https://api.smith.langchain.com".to_string()),
         )

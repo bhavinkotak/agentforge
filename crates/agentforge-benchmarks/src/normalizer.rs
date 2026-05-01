@@ -1,7 +1,6 @@
 use agentforge_core::{
-    BenchmarkBaseline, BenchmarkResult, BenchmarkSuite, BenchmarkTask, DifficultyTier,
-    ExpectedToolCall, Scenario, ScenarioExpected, ScenarioInput, ScenarioSource,
-    published_baselines,
+    published_baselines, BenchmarkBaseline, BenchmarkResult, BenchmarkSuite, BenchmarkTask,
+    DifficultyTier, Scenario, ScenarioExpected, ScenarioInput, ScenarioSource,
 };
 use chrono::Utc;
 use uuid::Uuid;
@@ -12,7 +11,10 @@ pub struct BenchmarkNormalizer;
 impl BenchmarkNormalizer {
     /// Convert a slice of benchmark tasks into AgentForge `Scenario`s.
     pub fn to_scenarios(tasks: &[BenchmarkTask], agent_id: Uuid) -> Vec<Scenario> {
-        tasks.iter().map(|t| task_to_scenario(t, agent_id)).collect()
+        tasks
+            .iter()
+            .map(|t| task_to_scenario(t, agent_id))
+            .collect()
     }
 
     /// Compute percentile rank for the agent vs. published baselines for a suite.
@@ -20,10 +22,8 @@ impl BenchmarkNormalizer {
     /// Returns `None` if there are no published baselines for the suite.
     pub fn percentile_rank(suite: &BenchmarkSuite, agent_accuracy: f64) -> Option<f64> {
         let all_baselines = published_baselines();
-        let baselines: Vec<&BenchmarkBaseline> = all_baselines
-            .iter()
-            .filter(|b| &b.suite == suite)
-            .collect();
+        let baselines: Vec<&BenchmarkBaseline> =
+            all_baselines.iter().filter(|b| &b.suite == suite).collect();
 
         if baselines.is_empty() {
             return None;
