@@ -73,7 +73,7 @@ anyhow = "1"
 # Tracing / observability
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-opentelemetry = "0.26"
+opentelemetry = "0.31"
 opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.26", features = ["http-proto", "reqwest-client"] }
 tracing-opentelemetry = "0.27"
