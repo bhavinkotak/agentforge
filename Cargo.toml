@@ -82,7 +82,7 @@ tracing-opentelemetry = "0.32"
 clap = { version = "4", features = ["derive", "env"] }
 
 # Validation
-jsonschema = "0.22"
+jsonschema = "0.46"
 
 # Hashing
 sha2 = "0.11"
