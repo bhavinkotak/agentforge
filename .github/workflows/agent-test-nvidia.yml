@@ -23,21 +23,21 @@ jobs:
   # ─── Run agent eval against free NVIDIA NIM models ──────────────────────────
   agent-test-nvidia:
     name: Agent Eval (NVIDIA NIM)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # continue-on-error so this job doesn't block the overall workflow when
     # NVIDIA_API_KEY is not configured (e.g. forks, contributor PRs).
     continue-on-error: true
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
 
       - name: Cache Cargo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index/
