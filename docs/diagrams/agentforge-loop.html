@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentForge · Self-Improving Agent Optimization Loop</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-soft:    #5a6580;
+      --color-accent:  #bf4520;
+      --color-link:    #2e5aa8;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; min-width: 0; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 1120px; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · AgentForge</p>
+    <h1>One file in, a better agent out: Rust optimization loop</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1120 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="agentforge-loop-title agentforge-loop-desc">
+        <title id="agentforge-loop-title">AgentForge Rust optimization loop architecture</title>
+        <desc id="agentforge-loop-desc">Architecture diagram showing a declarative agent spec entering a Rust workspace loop of scenario execution, six-dimension cross-provider scoring, failure-cluster mutation, and three-gate promotion to produce a versioned champion artifact.</desc>
+        <defs>
+          <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
+          </pattern>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+          </marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#bf4520"/>
+          </marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/>
+          </marker>
+        </defs>
+
+        <!-- 1. Background -->
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+        <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+        <!-- 2. Zone -->
+        <rect x="264" y="40" width="592" height="356" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="440" y="44" width="240" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="560" y="53" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">OPTIMIZATION LOOP · RUST WORKSPACE</text>
+
+        <!-- 3. Connectors (orthogonal only: <line> on shared axis, Q r=8 elbows otherwise) -->
+        <line x1="220" y1="116" x2="288" y2="116" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="352" y1="148" x2="352" y2="308" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="496" y1="340" x2="624" y2="340" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <line x1="768" y1="308" x2="768" y2="148" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <line x1="624" y1="116" x2="496" y2="116" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <line x1="832" y1="116" x2="900" y2="116" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <path d="M 424,148 V 220 Q 424,228 432,228 H 456"
+              fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <path d="M 696,308 V 236 Q 696,228 688,228 H 664"
+              fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+
+        <!-- 4. Arrow labels (8px uppercase mono on #f5f5f5 rx=2 h=12 mask, 8px clear of strokes) -->
+        <rect x="232" y="96" width="44" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="254" y="105" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PARSE</text>
+
+        <rect x="288" y="220" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="316" y="229" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">TRACES</text>
+
+        <rect x="528" y="320" width="64" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="560" y="329" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">CLUSTERS</text>
+
+        <rect x="776" y="220" width="64" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="808" y="229" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">VARIANTS</text>
+
+        <rect x="524" y="96" width="72" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="560" y="105" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">NEXT ROUND</text>
+
+        <rect x="840" y="96" width="52" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="866" y="105" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PROMOTE</text>
+
+        <!-- 5. Nodes -->
+        <!-- Node 1: Agent Spec File -->
+        <rect x="36" y="84" width="184" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="36" y="84" width="184" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <rect x="44" y="92" width="28" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.45)" stroke-width="0.8"/>
+        <text x="58" y="101" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">IN</text>
+        <text x="128" y="120" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Agent Spec File</text>
+        <text x="128" y="136" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">YAML · JSON · .agent.md</text>
+
+        <!-- Node 2: Scenarios & Runner -->
+        <rect x="288" y="84" width="208" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="288" y="84" width="208" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="296" y="92" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="314" y="101" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EVAL</text>
+        <text x="392" y="120" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Scenarios &amp; Runner</text>
+        <text x="392" y="136" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">tokio workers · OTLP trace</text>
+
+        <!-- Node 3: 6D Scorer & Clusters -->
+        <rect x="288" y="308" width="208" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="288" y="308" width="208" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="296" y="316" width="40" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="316" y="325" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SCORE</text>
+        <text x="392" y="344" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">6D Scorer &amp; Clusters</text>
+        <text x="392" y="360" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">cross-provider LLM judge</text>
+
+        <!-- Node 4: SHA Lineage & Postgres -->
+        <rect x="456" y="196" width="208" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="456" y="196" width="208" height="64" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="464" y="204" width="28" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.45)" stroke-width="0.8"/>
+        <text x="478" y="213" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DB</text>
+        <text x="560" y="232" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">SHA Lineage &amp; Postgres</text>
+        <text x="560" y="248" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">sqlx · parent_sha · Redis</text>
+
+        <!-- Node 5: Failure-Driven Mutator (Focal #1 coral) -->
+        <rect x="624" y="308" width="208" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="624" y="308" width="208" height="64" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="632" y="316" width="32" height="12" rx="2" fill="transparent" stroke="rgba(191,69,32,0.50)" stroke-width="0.8"/>
+        <text x="648" y="325" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">OPT</text>
+        <text x="728" y="344" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Failure-Driven Mutator</text>
+        <text x="728" y="360" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">5-20 variants · 25-eval</text>
+
+        <!-- Node 6: 3-Gate Gatekeeper (Focal #2 coral) -->
+        <rect x="624" y="84" width="208" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="624" y="84" width="208" height="64" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="632" y="92" width="36" height="12" rx="2" fill="transparent" stroke="rgba(191,69,32,0.50)" stroke-width="0.8"/>
+        <text x="650" y="101" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
+        <text x="728" y="120" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">3-Gate Gatekeeper</text>
+        <text x="728" y="136" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">+3% · &gt;=99% pass · 3 seeds</text>
+
+        <!-- Node 7: Champion Artifact -->
+        <rect x="900" y="84" width="184" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="900" y="84" width="184" height="64" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="908" y="92" width="32" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.45)" stroke-width="0.8"/>
+        <text x="924" y="101" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">OUT</text>
+        <text x="992" y="120" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Champion Artifact</text>
+        <text x="992" y="136" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">LCS diff · JSONL · CI</text>
+
+        <!-- 6. Horizontal bottom LEGEND strip (~68px bottom band) -->
+        <line x1="36" y1="424" x2="1084" y2="424" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="36" y="440" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+        <rect x="36" y="456" width="16" height="12" rx="2" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <text x="60" y="465" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Input agent spec</text>
+
+        <rect x="192" y="456" width="16" height="12" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="216" y="465" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Runner / scorer crate</text>
+
+        <rect x="380" y="456" width="16" height="12" rx="2" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <text x="404" y="465" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Mutator &amp; promotion gate</text>
+
+        <rect x="588" y="456" width="16" height="12" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <text x="612" y="465" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">State store / artifact</text>
+
+        <line x1="768" y1="462" x2="796" y2="462" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <text x="804" y="465" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Optimization path</text>
+
+        <line x1="932" y1="462" x2="960" y2="462" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <text x="968" y="465" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Loop / DB write-back</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

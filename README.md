@@ -7,7 +7,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub Marketplace](https://img.shields.io/badge/GitHub%20Actions-Marketplace-blue?logo=github)](https://github.com/marketplace/actions/agentforge-eval)
 
-AgentForge is a self-improving AI agent optimization platform written in Rust. Feed it a single agent file — a declarative spec describing your AI agent's system prompt, tools, output schemas, and behavioral constraints — and it autonomously generates test scenarios, runs the agent, scores every execution trace, and iterates on the specification until it converges on a measurably better version.
+AgentForge is a self-improving AI agent optimization platform written in Rust. Give it one agent file (system prompt, tools, output schema, and behavioral rules) and it generates test scenarios, runs the agent in parallel, scores every trace with an independent LLM judge, mutates weak spots, and promotes a new version only when all three quality gates pass.
+
+![AgentForge self-improving Rust agent optimization loop](./docs/diagrams/agentforge-loop.svg)
+
+Interactive HTML version: [`docs/diagrams/agentforge-loop.html`](./docs/diagrams/agentforge-loop.html)
 
 ---
 
@@ -62,60 +66,14 @@ Humans set the quality bar. The platform handles the repetitive evaluation and i
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         AGENTFORGE PLATFORM                          │
-│                                                                      │
-│  INPUT: Agent File (YAML / JSON / MD)                                │
-│         system_prompt · tools[] · output_schema                      │
-│         constraints[] · model  · sampling_config                     │
-│                       │                                              │
-│                       ▼                                              │
-│  ┌────────────────────────────────┐                                  │
-│  │  F-01: AGENT LOADER            │                                  │
-│  │  Parser → Schema Validator     │                                  │
-│  │  → Version Store (SHA-based)   │                                  │
-│  └────────────────┬───────────────┘                                  │
-│                   ▼                                                  │
-│  ┌───────────────────────────────┐                                   │
-│  │  F-02: SCENARIO GENERATOR     │                                   │
-│  │  Schema-derived (50%)         │                                   │
-│  │  Adversarial    (30%)         │                                   │
-│  │  Domain-seeded  (20%)         │                                   │
-│  └────────────────┬──────────────┘                                   │
-│                   ▼                                                  │
-│  ┌────────────────────────────────────────────────────────────┐      │
-│  │  F-03: AGENT RUNNER (parallel workers, full trace capture) │      │
-│  └────────────────────────────────┬───────────────────────────┘      │
-│                                   ▼                                  │
-│  ┌────────────────────────────────────────────────────────────┐      │
-│  │  F-04: TRACE ANALYZER & SCORER                             │      │
-│  │  Deterministic assertions + LLM-as-judge                   │      │
-│  │  Weighted aggregate score + Failure cluster report         │      │
-│  └─────────────────────────────────┬──────────────────────────┘      │
-│                                    ▼                                 │
-│  ┌──────────────────────────────────────┐                            │
-│  │  F-05: OPTIMIZER                     │                            │
-│  │  Prompt rewrite · Tool desc rewrite  │                            │
-│  │  Schema tighten · Example inject     │                            │
-│  │  → 5–20 Candidate Variants           │                            │
-│  └──────────────────────┬───────────────┘                            │
-│                         ▼                                            │
-│  ┌─────────────────────────────────┐                                 │
-│  │  F-06: PROMOTION GATEKEEPER     │                                 │
-│  │  Score Gate (+3% over champion) │                                 │
-│  │  Regression Gate (≥99% pass)    │                                 │
-│  │  Stability Gate (3 seeds)       │                                 │
-│  └─────────────────────┬───────────┘                                 │
-│                        ▼                                             │
-│  ┌───────────────────────────────────────┐                           │
-│  │  PROMOTED AGENT FILE                  │                           │
-│  │  (versioned, diffed, changelog)       │                           │
-│  └───────────────────────────────────────┘                           │
-│                                                                      │
-│  F-07: REST API   │  F-08: CLI / GitHub Actions                      │
-└──────────────────────────────────────────────────────────────────────┘
-```
+See [`docs/diagrams/agentforge-loop.svg`](./docs/diagrams/agentforge-loop.svg) ([interactive HTML](./docs/diagrams/agentforge-loop.html)) for the optimization loop schematic. Each evaluation cycle moves through six workspace crates backed by PostgreSQL (`sqlx`) and Redis:
+
+1. `agentforge-parser` parses native YAML, OpenAI/Anthropic JSON, LangChain/CrewAI YAML, or GitHub Copilot `.agent.md` specs, validates schemas, and records a content-addressed SHA version.
+2. `agentforge-scenarios` builds schema-derived (50%), adversarial (30%), and domain-seeded (20%) test cases, plus optional `--red-team` safety probes.
+3. `agentforge-runner` executes scenarios across parallel Tokio workers, capturing tool calls, token cost, and OpenTelemetry spans.
+4. `agentforge-scorer` runs deterministic schema/tool checks alongside a cross-provider LLM judge across six weighted dimensions and groups misses into failure clusters.
+5. `agentforge-optimizer` generates 5 to 20 targeted mutations (prompt rewrites, compact tool-description rewrites, schema tightening, example injection), quick-evaluates each on 25 scenarios, and tracks `parent_sha` lineage.
+6. `agentforge-gatekeeper` requires `+3%` aggregate gain over the champion, at least `99%` non-regression on passing scenarios, and stability across 3 random seeds before promoting a new champion artifact.
 
 ---
 
@@ -129,7 +87,10 @@ agentforge/
 ├── Cargo.lock
 ├── docker-compose.yml          # PostgreSQL for local dev
 ├── Dockerfile
+├── action.yml                  # Reusable GitHub Action definition
 ├── .env.example                # Environment variable template
+├── docs/                       # PRD.md, openapi.yaml, diagrams/
+├── web/                        # React + TypeScript dashboard
 ├── migrations/                 # SQLx database migrations
 │   ├── 001_agent_versions.sql
 │   ├── 002_eval_runs.sql
@@ -169,7 +130,7 @@ agentforge/
 
 ### Prerequisites
 
-- Rust 1.83+ (install via [rustup](https://rustup.rs))
+- Rust 1.85+ (install via [rustup](https://rustup.rs))
 - Docker + Docker Compose
 - **One** of: OpenAI API key, Anthropic API key, NVIDIA NIM API key, or [Ollama](https://ollama.com) running locally (no key required)
 - Node.js 20+ and npm (only required if developing the `web/` dashboard locally; production deployment uses the pre-built Docker image)
@@ -203,7 +164,7 @@ AGENTFORGE_JUDGE_PROVIDER=anthropic
 AGENTFORGE_JUDGE_MODEL=claude-3-5-haiku-20241022
 ```
 
-**NVIDIA NIM** (free tier at [build.nvidia.com](https://build.nvidia.com) — no credit card for free models)
+**NVIDIA NIM** (free tier at [build.nvidia.com](https://build.nvidia.com), no credit card for free models)
 ```bash
 NVIDIA_API_KEY=nvapi-...
 AGENTFORGE_JUDGE_PROVIDER=nvidia
@@ -263,7 +224,7 @@ DATABASE_URL=$DATABASE_URL ./target/release/agentforge-api
 
 ## LLM Providers
 
-AgentForge uses two independent LLM roles: the **agent** (the model being evaluated) and the **judge** (scores traces). Both are configured separately so you can mix providers — e.g., evaluate an Ollama agent with an OpenAI judge, or evaluate a NVIDIA NIM agent with an Anthropic judge. The API enforces that the two providers differ to prevent circular bias.
+AgentForge uses two independent LLM roles: the **agent** (the model being evaluated) and the **judge** (scores traces). Both are configured separately so you can mix providers, such as evaluating an Ollama agent with an OpenAI judge or a NVIDIA NIM agent with an Anthropic judge. The API enforces that the two providers differ to prevent circular bias.
 
 Set `AGENTFORGE_JUDGE_PROVIDER` to route the judge (scorer + optimizer) to the correct backend. Set `provider` on a `POST /api/v1/runs` request (or `--provider` via CLI) to route the agent itself.
 
@@ -312,7 +273,7 @@ AGENTFORGE_JUDGE_MODEL=meta/llama-3.1-8b-instruct    # model for judge/scorer
 | `nvidia/nemotron-mini-4b-instruct` | NVIDIA-tuned, very fast |
 | `microsoft/phi-3-mini-4k-instruct` | Efficient small model |
 
-> NVIDIA NIM enforces single tool calls per request (`parallel_tool_calls=false`). The base URL is always `https://integrate.api.nvidia.com/v1` — it cannot be overridden.
+> NVIDIA NIM enforces single tool calls per request (`parallel_tool_calls=false`). The base URL is always `https://integrate.api.nvidia.com/v1` and cannot be overridden.
 
 ### Ollama (fully local)
 
@@ -364,7 +325,7 @@ AWS_REGION=us-east-1
 **Environment variables**
 
 ```bash
-# AWS credentials (can also be supplied via instance role / IRSA — no env vars needed in that case)
+# AWS credentials (can also be supplied via instance role or IRSA without env vars)
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
 AWS_SESSION_TOKEN=...        # only required for temporary credentials
@@ -393,7 +354,7 @@ AGENTFORGE_BEDROCK_MODEL=anthropic.claude-3-5-sonnet-20241022-v2:0
 
 AgentForge accepts agent files in the following formats:
 - **AgentForge native YAML** (recommended)
-- **GitHub Copilot `.agent.md`** — YAML frontmatter + Markdown system prompt body
+- **GitHub Copilot `.agent.md`**: YAML frontmatter + Markdown system prompt body
 - OpenAI Assistants API JSON
 - Anthropic Claude system prompt + tool block JSON
 - LangChain / LangGraph agent YAML
@@ -429,7 +390,7 @@ and maintainability.
 |-------|------|-------------|
 | `name` | string | Agent display name |
 | `description` | string | Short description (stored in metadata) |
-| `model` | string | LLM model ID — infers provider from name (e.g. `GPT-4.1` → OpenAI, `claude-*` → Anthropic) |
+| `model` | string | LLM model ID; infers provider from name (e.g. `GPT-4.1` -> OpenAI, `claude-*` -> Anthropic) |
 | `tools` | string[] | Capability references like `"github/*"`, `"read"`, `"context7/*"` |
 | `argument-hint` | string | Hint for the argument the agent expects (stored in metadata) |
 | `mcp-servers` | object | MCP server configurations (stored in metadata) |
@@ -439,7 +400,7 @@ Copilot tool capability references are mapped to `ToolDefinition` entries so Age
 ### AgentForge Native YAML Schema
 
 ```yaml
-# agent.yaml — AgentForge native schema v1
+# agent.yaml: AgentForge native schema v1
 agentforge_schema_version: "1"
 name: "customer-support-agent"
 version: "2.1.0"
@@ -533,9 +494,9 @@ Options for `run`:
                                Polls for file changes every 500 ms. Press Ctrl-C to stop.
 
 Exit codes:
-  0  — All gates passed, version promoted (or no promotion needed)
-  1  — Gatekeeper blocked promotion
-  2  — Error (parse failure, DB connection, etc.)
+  0  All gates passed, version promoted (or no promotion needed)
+  1  Gatekeeper blocked promotion
+  2  Error (parse failure, DB connection, etc.)
 ```
 
 ---
@@ -572,7 +533,7 @@ An **OpenAPI 3.1 spec** is available at [docs/openapi.yaml](docs/openapi.yaml) a
 | `GET` | `/api/v1/exports/finetune/:id` | Get fine-tune export job status and download path |
 | `POST` | `/api/v1/benchmarks` | Run an agent against a standard benchmark suite (GAIA, AgentBench, or WebArena) |
 | `GET` | `/api/v1/benchmarks/:id` | Get benchmark run status, accuracy, and percentile rank |
-| `GET` | `/health` | Liveness probe — exempt from API key authentication |
+| `GET` | `/health` | Liveness probe (exempt from API key authentication) |
 
 > **Concurrency limit on `POST /runs`:** to prevent accidental LLM cost floods, the server rejects new
 > eval-run requests with HTTP 429 when `AGENTFORGE_MAX_CONCURRENT_RUNS` active background tasks are
@@ -696,7 +657,7 @@ Every execution trace is scored across six dimensions:
 | Instruction adherence | 7% | LLM judge with rubric | Did the agent follow all behavioral constraints? |
 | Path efficiency | 3% | Step count vs. optimal | Was the shortest valid path taken? |
 
-Weights are configurable via environment variables (`AGENTFORGE_WEIGHT_TASK`, `AGENTFORGE_WEIGHT_TOOL`, `AGENTFORGE_WEIGHT_ARGS`, `AGENTFORGE_WEIGHT_SCHEMA`, `AGENTFORGE_WEIGHT_INSTR`, `AGENTFORGE_WEIGHT_PATH`) or via per-run CLI flags (`--weight-task`, `--weight-tool`, etc.). The judge LLM **must use a different provider from the agent** to prevent circular bias — enforcement is at the provider level (e.g., `openai` vs `anthropic`), not the individual model ID. The API returns HTTP 400 if `provider` and `judge_provider` are the same string.
+Weights are configurable via environment variables (`AGENTFORGE_WEIGHT_TASK`, `AGENTFORGE_WEIGHT_TOOL`, `AGENTFORGE_WEIGHT_ARGS`, `AGENTFORGE_WEIGHT_SCHEMA`, `AGENTFORGE_WEIGHT_INSTR`, `AGENTFORGE_WEIGHT_PATH`) or via per-run CLI flags (`--weight-task`, `--weight-tool`, etc.). The judge LLM **must use a different provider from the agent** to prevent circular bias; enforcement is at the provider level (e.g., `openai` vs `anthropic`), not the individual model ID. The API returns HTTP 400 if `provider` and `judge_provider` are the same string.
 
 ### Failure Clusters
 
@@ -710,8 +671,8 @@ Traces are automatically grouped into failure clusters:
 | `premature_stop` | Ended the conversation before completing the task |
 | `schema_violation` | Output did not match the declared schema |
 | `constraint_breach` | Violated a behavioural constraint |
-| `api_error` | Infrastructure failure (rate limit, 5xx, timeout) — not an agent quality issue |
-| `no_failure` | Trace passed — no failure to classify |
+| `api_error` | Infrastructure failure (rate limit, 5xx, timeout), not an agent quality issue |
+| `no_failure` | Trace passed with no failure to classify |
 
 ---
 
@@ -719,11 +680,11 @@ Traces are automatically grouped into failure clusters:
 
 A candidate variant must clear **all three gates** to be promoted:
 
-1. **Score Gate** — Aggregate score must exceed the current champion by at least `+3%` (configurable via `AGENTFORGE_SCORE_GATE_DELTA`).
+1. `Score Gate`: Aggregate score must exceed the current champion by at least `+3%` (configurable via `AGENTFORGE_SCORE_GATE_DELTA`).
 
-2. **Regression Gate** — Must pass ≥ 99% of the scenarios the current champion passes (configurable via `AGENTFORGE_REGRESSION_GATE_THRESHOLD`). Prevents "robbing Peter to pay Paul" improvements.
+2. `Regression Gate`: Must pass at least 99% of the scenarios the current champion passes (configurable via `AGENTFORGE_REGRESSION_GATE_THRESHOLD`). Prevents trading wins on new cases for regressions on existing ones.
 
-3. **Stability Gate** — Must be evaluated on at least 3 independent random seeds before comparison, to account for LLM non-determinism (configurable via `AGENTFORGE_STABILITY_SEEDS`).
+3. `Stability Gate`: Must be evaluated on at least 3 independent random seeds before comparison, accounting for LLM variance (configurable via `AGENTFORGE_STABILITY_SEEDS`).
 
 If multiple candidates pass all gates, the one with the highest aggregate score is promoted. Promotion creates a new versioned agent file with an auto-generated changelog entry.
 
@@ -737,17 +698,17 @@ All configuration is via environment variables. See [`.env.example`](.env.exampl
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | — | PostgreSQL connection string (required) |
+| `DATABASE_URL` | *(required)* | PostgreSQL connection string (required) |
 | `REDIS_URL` | `redis://localhost:6379` | Redis for caching |
-| `OPENAI_API_KEY` | — | OpenAI API key |
-| `ANTHROPIC_API_KEY` | — | Anthropic API key |
-| `NVIDIA_API_KEY` | — | NVIDIA NIM API key (`nvapi-…`) |
+| `OPENAI_API_KEY` | *(unset)* | OpenAI API key |
+| `ANTHROPIC_API_KEY` | *(unset)* | Anthropic API key |
+| `NVIDIA_API_KEY` | *(unset)* | NVIDIA NIM API key (`nvapi-...`) |
 | `AGENTFORGE_NVIDIA_MODEL` | `mistralai/mistral-small-4-119b-2603` | NVIDIA NIM model for agent runs (base URL is always `https://integrate.api.nvidia.com/v1`) |
 | `AGENTFORGE_OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Ollama base URL (OpenAI-compatible endpoint) |
 | `AGENTFORGE_OLLAMA_MODEL` | `llama3.2:3b` | Ollama model; overrides any model ID in the agent file at runtime |
-| `AWS_ACCESS_KEY_ID` | — | AWS access key for Bedrock (can also be supplied via instance role or IRSA) |
-| `AWS_SECRET_ACCESS_KEY` | — | AWS secret access key for Bedrock |
-| `AWS_SESSION_TOKEN` | — | AWS session token (only required for temporary credentials) |
+| `AWS_ACCESS_KEY_ID` | *(unset)* | AWS access key for Bedrock (can also be supplied via instance role or IRSA) |
+| `AWS_SECRET_ACCESS_KEY` | *(unset)* | AWS secret access key for Bedrock |
+| `AWS_SESSION_TOKEN` | *(unset)* | AWS session token (only required for temporary credentials) |
 | `AWS_REGION` | `us-east-1` | AWS region for Bedrock API calls |
 | `AGENTFORGE_BEDROCK_MODEL` | `anthropic.claude-3-haiku-20240307-v1:0` | Bedrock model ID for agent runs |
 | `AGENTFORGE_JUDGE_PROVIDER` | `openai` | LLM provider for the judge: `openai` \| `anthropic` \| `nvidia` \| `ollama` \| `bedrock` |
@@ -758,7 +719,7 @@ All configuration is via environment variables. See [`.env.example`](.env.exampl
 | `AGENTFORGE_PORT` | `8080` | API server port |
 | `AGENTFORGE_LOG_LEVEL` | `info` | Log level (trace/debug/info/warn/error) |
 | `AGENTFORGE_MAX_CONCURRENT_RUNS` | `10` | Max simultaneous background eval runs (HTTP 429 when exceeded) |
-| `AGENTFORGE_API_KEY` | — | Bearer token for API authentication. When set, all `/api/v1/*` endpoints require `Authorization: Bearer <key>`. Unset = unauthenticated dev mode |
+| `AGENTFORGE_API_KEY` | *(unset)* | Bearer token for API authentication. When set, all `/api/v1/*` endpoints require `Authorization: Bearer <key>`. Unset = unauthenticated dev mode |
 | `AGENTFORGE_DEFAULT_SCENARIOS` | `100` | Default scenario count per run |
 | `AGENTFORGE_MAX_SCENARIOS` | `2000` | Maximum scenarios allowed per run (HTTP 400 when exceeded) |
 | `AGENTFORGE_DEFAULT_CONCURRENCY` | `10` | Parallel worker count |
@@ -772,11 +733,11 @@ All configuration is via environment variables. See [`.env.example`](.env.exampl
 | `AGENTFORGE_WEIGHT_SCHEMA` | `0.15` | Schema-compliance scoring weight |
 | `AGENTFORGE_WEIGHT_INSTR` | `0.07` | Instruction-adherence scoring weight |
 | `AGENTFORGE_WEIGHT_PATH` | `0.03` | Path-efficiency scoring weight |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | When set, exports OpenTelemetry traces to this OTLP endpoint (e.g., `http://otel-collector:4318`). Requires the `agentforge-observability` crate to be compiled in. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | *(unset)* | When set, exports OpenTelemetry traces to this OTLP endpoint (e.g., `http://otel-collector:4318`). Requires the `agentforge-observability` crate to be compiled in. |
 
 > **`REDIS_URL` vs `AGENTFORGE_*`:** Redis uses the bare `REDIS_URL` key (compatible with most hosting platforms). All other app-level settings use the `AGENTFORGE_` prefix.
 
-> **`AGENTFORGE_HOST` default:** The server binds to `127.0.0.1` by default for security (localhost only). Set to `0.0.0.0` to accept external connections — docker-compose overrides this automatically for container networking.
+> **`AGENTFORGE_HOST` default:** The server binds to `127.0.0.1` by default for security (localhost only). Set to `0.0.0.0` to accept external connections; docker-compose overrides this automatically for container networking.
 
 ---
 
@@ -815,7 +776,7 @@ The test suite covers:
 
 [![GitHub Marketplace](https://img.shields.io/badge/GitHub%20Actions-Marketplace-blue?logo=github)](https://github.com/marketplace/actions/agentforge-eval)
 
-AgentForge is published as a reusable GitHub Action. No Rust toolchain, database, or build step required in your workflow — the action downloads a pre-built binary from the latest release automatically.
+AgentForge is published as a reusable GitHub Action. No Rust toolchain, database, or build step is required in your workflow; the action downloads a pre-built binary from the latest release automatically.
 
 ```yaml
 - uses: bhavinkotak/agentforge@v1
@@ -831,7 +792,7 @@ AgentForge is published as a reusable GitHub Action. No Rust toolchain, database
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `agent_file` | **yes** | — | Path to the agent file (YAML, JSON, or `.agent.md`) |
+| `agent_file` | **yes** | *(required)* | Path to the agent file (YAML, JSON, or `.agent.md`) |
 | `scenarios` | no | `100` | Number of test scenarios to generate |
 | `concurrency` | no | `10` | Parallel workers for running scenarios |
 | `seed` | no | `42` | Random seed for reproducible scenario generation |
@@ -854,7 +815,7 @@ AgentForge is published as a reusable GitHub Action. No Rust toolchain, database
 
 #### Block a merge when agent quality drops
 
-Run a full eval cycle on every PR that touches agent files. Fail the check if the score falls below threshold — preventing regressions from being merged.
+Run a full eval cycle on every PR that touches agent files. Fail the check if the score falls below threshold, stopping regressions before merge.
 
 ```yaml
 name: Agent Quality Gate
@@ -915,7 +876,7 @@ jobs:
 
 #### Evaluate a GitHub Copilot `.agent.md` file
 
-AgentForge natively parses Copilot agent files — just point `agent_file` at the `.agent.md`.
+AgentForge natively parses Copilot agent files; point `agent_file` directly at `.agent.md`.
 
 ```yaml
 - uses: bhavinkotak/agentforge@v1
@@ -935,6 +896,8 @@ AgentForge natively parses Copilot agent files — just point `agent_file` at th
 ---
 
 ## CI/CD Integration
+
+This repository's own GitHub Actions workflows run `rustfmt`, `clippy`, and `cargo test` on `ubuntu-26.04` with SHA-pinned actions; scheduled cron runs are disabled in the repository workflows so LLM evaluation runs only on pushes, pull requests, or manual dispatches.
 
 ### Self-hosted / custom CI
 
@@ -1001,11 +964,11 @@ Exit codes: `0` = passed/promoted, `1` = gatekeeper blocked, `2` = error.
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the full process. In short:
 
-1. **Open an issue first** for significant changes so we can discuss the approach.
-2. **Fork and branch** — create a feature branch from `main`.
-3. **Follow code conventions** — `cargo fmt` and `cargo clippy --all-targets` must pass.
-4. **Add tests** — all new behaviour must be covered.
-5. **Open a PR** — all PRs require approval from the project maintainer ([@bhavinkotak](https://github.com/bhavinkotak)) before merging.
+1. Open an issue first for significant changes so we can discuss the approach.
+2. Fork and branch: create a feature branch from `main`.
+3. Follow code conventions: `cargo fmt` and `cargo clippy --all-targets` must pass.
+4. Add tests: all new behaviour must be covered.
+5. Open a PR: all PRs require approval from the project maintainer ([@bhavinkotak](https://github.com/bhavinkotak)) before merging.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for dev environment setup, commit message conventions, and the full review checklist.
 
@@ -1034,13 +997,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for dev environment setup, commit message
 
 | Feature | Description |
 |---------|-------------|
-| Online eval | ✅ Implemented — shadow-mode real traffic comparison via `POST /api/v1/shadow-runs` |
-| Fine-tune exporter | ✅ Implemented — export trace pairs as JSONL via `POST /api/v1/exports/finetune` |
-| Multi-agent testing | ✅ Implemented — `agentforge-multiagent` crate for composed agent teams |
-| Red-teaming mode | ✅ Implemented — adversarial safety probes via `--red-team` CLI flag |
-| Benchmark comparison | ✅ Implemented — compare against standard suites via `POST /api/v1/benchmarks` |
-| Observability hooks | ✅ Implemented — OTLP trace export via `OTEL_EXPORTER_OTLP_ENDPOINT` |
-| Cost optimizer | ✅ Implemented — model downgrade recommendations via `--cost-optimize` CLI flag |
+| Online eval | Implemented: shadow-mode real traffic comparison via `POST /api/v1/shadow-runs` |
+| Fine-tune exporter | Implemented: export trace pairs as JSONL via `POST /api/v1/exports/finetune` |
+| Multi-agent testing | Implemented: `agentforge-multiagent` crate for composed agent teams |
+| Red-teaming mode | Implemented: adversarial safety probes via `--red-team` CLI flag |
+| Benchmark comparison | Implemented: compare against standard suites via `POST /api/v1/benchmarks` |
+| Observability hooks | Implemented: OTLP trace export via `OTEL_EXPORTER_OTLP_ENDPOINT` |
+| Cost optimizer | Implemented: model downgrade recommendations via `--cost-optimize` CLI flag |
 
 > **Web dashboard** (`web/`) is already included in this repo and served via the Docker Compose stack on port 3000.
 
@@ -1114,8 +1077,8 @@ The `agentforge-benchmarks` crate evaluates an agent against three public benchm
 
 ### Accuracy and percentile rank
 
-- `accuracy` — fraction of tasks answered correctly (`correct / total_tasks`).
-- `percentile_rank` — where your score falls relative to submissions tracked by AgentForge's built-in normalizer. A rank of `0.75` means the agent outperforms 75 % of tracked runs for that suite.
+- `accuracy`: fraction of tasks answered correctly (`correct / total_tasks`).
+- `percentile_rank`: where your score falls relative to submissions tracked by AgentForge's built-in normalizer. A rank of `0.75` means the agent outperforms 75 % of tracked runs for that suite.
 
 ### Example output
 
@@ -1149,9 +1112,9 @@ Agents are grouped by name so every agent family appears as a single row:
 
 ### Agent Detail
 
-- **Summary panel** — model, status, system prompt, tools, constraints.
-- **Score History** — chart of aggregate scores over time.
-- **Version History** — card listing all versions for the same agent name, sorted by semver ascending. The current version is highlighted with an indigo background and a `current` badge. Click any row to navigate to that version. Click the diff icon to compare system prompts.
+- `Summary panel`: model, status, system prompt, tools, constraints.
+- `Score History`: chart of aggregate scores over time.
+- `Version History`: card listing all versions for the same agent name, sorted by semver ascending. The current version is highlighted with an indigo background and a `current` badge. Click any row to navigate to that version. Click the diff icon to compare system prompts.
 
 ### Diff Viewer
 
